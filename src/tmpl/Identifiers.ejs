@@ -1,0 +1,43 @@
+
+#define UAPI_HAS_IDS 1
+namespace reflect{
+
+    typedef unsigned int ShortId;
+
+    struct Identifier{
+        Identifier(const char *c,ShortId _shortId):cp(c),shortId(_shortId){}
+        bool operator==(const Identifier & o) const{
+            return o.cp == cp;
+        }
+
+        const char *cp;
+        ShortId shortId;
+    };
+namespace IDs{
+    
+    // Identifiers
+    <% for(const id of identifiers){ %>
+    static  Identifier <%=id.name %> ("<%=id.name%>",<%=id.shortKey%>);
+    <% } -%>
+
+    // Helpers functions
+    Identifier * tryBuild(const char * identifier_name){
+        <% for(const id of identifiers){ %>
+            if(strcmp(identifier_name,"<%=id.name %>")==0)
+                return & <%=id.name %>;
+            <% } %>
+
+            return nullptr;
+    }
+
+    Identifier * tryBuildFromShort(const ShortId& id){
+        <% for(const id of identifiers){ %>
+            if(id==<%= id.shortKey %>)
+                return & <%=id.name %>;
+            <% } %>
+
+            return nullptr;
+    }
+
+}
+} 

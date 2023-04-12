@@ -1,0 +1,227 @@
+
+#define UAPI_HAS_VARIANTS 1
+
+#include <variant>
+#include <optional>
+namespace reflect{
+namespace variants{
+    
+    //ref wrappers
+    <% var classesRef = {};
+        for (const c of classes) {
+        var classRefName = c.name+"_ref"
+        for( const c of "<>,%: ")
+            classRefName=classRefName.replaceAll(c,"_");
+        classesRef[c.name]=classRefName; %>
+        
+        using <%-classRefName%> = std::reference_wrapper<<%-c.name%>>;
+
+    <% } %>
+    // big AnyVar
+   typedef  std::variant < <%- classes.map(e=>classesRef[e.name]).join(',') %> > AnyMemberRefVar;
+   typedef std::optional<AnyMemberRefVar>OptMemberRef;
+
+   typedef std::vector<AnyMemberRefVar> AnyMemberRefVec;
+
+
+    template<typename T>
+    OptMemberRef getMemberWithName(T& obj,const char * name );
+
+    <% for (const c of classes) {if(!c.isUserDefined) continue; %>
+        template<>
+        OptMemberRef getMemberWithName< <%- c.name %> >( <%- c.name %> & obj,const char * name){
+            <% for(const m of c.members) {%>
+                if(strcmp(name,"<%=m.name%>")==0)
+                    return AnyMemberRefVar(std::ref(obj.<%=m.name%>));
+            <% } %>
+            return {};
+        }
+    <% } %>
+
+
+    template <typename T>
+       T  getMemberValueAs(AnyMemberRefVar v){
+            T res = {};
+            std::visit([&res](auto && arg){
+                auto v = arg.get();
+                if constexpr (std::is_same_v<T,decltype(v)>){
+                    res=v;
+                }
+            },v);
+            return res;
+        }
+ 
+
+// MethodVars
+
+struct VoidReturn{};
+struct VoidArgs{};
+ <%     
+    var argListClasses = {"VoidArgs":[]};
+    var methodReturnTypes = {};
+    var methodRefs = {};
+    for (const c of classes) {
+        for( const m of c.methods){
+            var argListClassName = m.args.map(e=>{return e.type}).join('_')+"_MethodArgs"
+           var hasNoArgs =  !m.args || (m.args.length==0)
+           if(hasNoArgs){
+            argListClassName = "VoidArgs";
+           }
+            if(argListClasses[argListClassName]===undefined && !hasNoArgs){
+                argListClasses[argListClassName] = m.args;
+            }
+            
+            m.argListClassName=argListClassName;
+            if(m.returnType==="void"){
+                m.returnType = "VoidReturn"
+            }
+            if(methodReturnTypes[m.returnType] == undefined){
+                methodReturnTypes[m.returnType] = 1
+            }
+        }
+    }
+    for( const [k,args] of Object.entries(argListClasses)){
+        if(k=="VoidArgs")continue;
+    %>
+            
+        using <%-k%> = std::tuple<<%- args.map(a=>a.type)%>>;
+
+    <% } %>
+    
+    typedef  std::variant < <%- Object.keys(argListClasses).join(',') %> > AnyMethodArgsValue;
+    typedef  std::variant < <%- Object.keys(methodReturnTypes).join(',') %> > AnyMethodReturnValue;
+    
+    struct Method{
+        std::string name;
+        typedef std::function<AnyMethodReturnValue (const AnyMethodArgsValue &) >  CallAnyType;
+        Method(const std::string & n,CallAnyType && fun):name(n),call(fun){};
+        virtual ~Method() = default;
+
+        virtual AnyMethodArgsValue parse_args(std::istream & iss) = 0;
+        virtual AnyMethodReturnValue parse_resp(std::istream &iss)  = 0;
+        CallAnyType call;
+    };
+
+
+
+    template<typename RT,typename ArgT>
+    struct MethodImpl : public Method{
+        MethodImpl(const std::string & n,CallAnyType && fun):Method(n,std::move(fun)){}
+        AnyMethodArgsValue parse_args(std::istream & iss) override{
+            ArgT res;
+            reflect::serialize::parse_value<ArgT>(res,iss);
+            return res;
+        }
+        AnyMethodReturnValue parse_resp(std::istream &iss) override {
+            RT res;
+            reflect::serialize::parse_value<RT>(res, iss);
+            return res;
+        }
+
+    };
+    
+   
+  
+    
+   
+    template<typename T>
+    Method* getMethodWithName(T& obj,const char * name );
+    <% for (const c of classes) { if(!c.isUserDefined)continue; %>
+        template<>
+        Method* getMethodWithName< <%- c.name %> >( <%- c.name %> & obj,const char * name){
+            <% for(const m of c.methods) { %>
+                if(strcmp(name,"<%=m.name%>")==0){
+                 static MethodImpl<<%-m.returnType%>,<%-m.argListClassName%>> <%=m.name%>_Function("<%=m.name%>",[&obj](const AnyMethodArgsValue & args)->AnyMethodReturnValue{
+                <% if(m.argListClassName!="VoidArgs"){ -%>
+                                if(auto * resolved = std::get_if<<%-m.argListClassName%>>(&args))
+                <% } -%>
+                {
+                    <% if(m.returnType=="VoidReturn"){ -%>
+                        auto res = VoidReturn();
+                    <% }else{ -%>
+                        auto res=
+                    <% } -%>
+                        std::apply(&<%-c.name%>::<%-m.name%>, 
+                            <% if(m.argListClassName!="VoidArgs"){ -%>
+                                std::tuple_cat(std::make_tuple(obj),  *resolved)
+                            <% }else{ -%>
+                                std::make_tuple(obj)
+                            <% } -%>
+                            );
+                    return res;
+                    
+                    
+                }
+                std::cout << "wrong arg type" << std::endl;
+                return {};
+                
+            });
+            return &<%=m.name%>_Function;}
+
+            <% } %>
+            return {};
+        }
+    <% } %>
+
+} 
+
+namespace serialize{
+    template<>
+    void write_value<variants::VoidReturn>(std::ostream & ,const variants::VoidReturn & ){}
+    template<>
+    void parse_value<variants::VoidReturn>(variants::VoidReturn & , std::istream &  ){}
+    
+    template<>
+    void write_value<variants::VoidArgs>(std::ostream & ,const variants::VoidArgs & ){}
+    template<>
+    void parse_value<variants::VoidArgs>(variants::VoidArgs & , std::istream &  ){}
+    
+
+    template<>
+    void write_value<variants::AnyMethodArgsValue>(std::ostream & oss,const variants::AnyMethodArgsValue & args){
+            std::visit([&oss](auto && v){
+                write_value(oss,v);
+            },args);
+        
+    }
+
+    template<>
+    void write_value<variants::AnyMethodReturnValue>(std::ostream & oss,const variants::AnyMethodReturnValue & args){
+            std::visit([&oss](auto && v){
+                write_value(oss,v);
+            },args);
+        
+    }
+
+
+/*
+    <% for (const [k,argListClass] of Object.entries(argListClasses)) {%>
+        template<>
+        AnyMethodArgsValue args_from_bin<<%-k%>>(std::istream & iss){
+            <%-k%> res {};
+            <% var i = -1;for (const [k,val] of Object.entries(argListClass)) {i++;-%>
+                reflect::serialize::parse_value<<%-val.type%>>(std::get<<%-i%>>(res),iss);
+                <% } %>
+            return res;
+        }
+        template<>
+        void args_to_bin<<%-k%>>(std::ostream & oss,AnyMethodArgsValue& args){
+            
+            <% var i = -1;for (const [k,val] of Object.entries(argListClass)) {i++;%>
+                reflect::serialize::write_value<<%-val.type%>>(oss,std::get<<%-i%>>(args));
+                <% } %>
+            
+        }
+        <% } %>
+        */
+        
+
+    
+    
+    // template<>
+    // void write_value<VoidArgs>(std::ostream & ,VoidArgs & ){}
+}
+
+
+} 
+

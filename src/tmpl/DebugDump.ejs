@@ -1,0 +1,76 @@
+#include <iostream>
+    <% if (ctx.init){ %>
+#define UAPI_HAS_DUMP 1
+<% }%>
+namespace reflect{
+namespace debug{
+
+    
+    <% if (ctx.init){ %>
+        constexpr bool includeType = false;
+        int indentStep = 4;
+
+        template<typename T>
+        void dumpValue(const T & obj,int){
+            std::cout << obj ;
+        }
+
+        template <class T>
+        struct is_vector : std::false_type {};    
+        template <class T, class A>
+        struct is_vector<std::vector<T, A>> : std::true_type {};
+        template <class T, size_t A>
+        struct is_vector<std::array<T, A>> : std::true_type {};
+        template<typename T>
+        concept Vec = is_vector<T>::value;
+
+
+        template<Vec T>
+        void dumpValue(const T & obj,int indent){
+            std::cout << "[ ";
+            int i = 0;
+            for(const auto & o:obj){
+                dumpValue(o,indent) ;
+                if(i!=obj.size()-1)
+                    std::cout << ", ";
+                i++;
+            }
+            std::cout << " ]" ;
+        }
+
+    <% } %>
+
+
+
+
+    
+    template<>
+    void dumpValue< <%-name%> >(const <%-name%> & obj,int indent){
+        
+        std::cout << "{\n";
+        <% if (members.length) { %>  
+            auto pad = std::string(indentStep * (indent+1), ' '); 
+            <% } %>
+            <% for(const m of members){ %>
+                std::cout << pad << "<%=m.name%>";
+                if(includeType)
+                std::cout << " {<%-m.type%>}";
+                std::cout << " : " ;
+                dumpValue(obj.<%=m.name%>,indent+1);
+                std::cout <<  std::endl;
+                <% } //endfor -%>
+                std::cout << std::string(indentStep * (indent), ' ')<< "}\n";
+            }
+    
+    template<typename T>
+    void dump(const T & obj);
+    
+    template<>
+    void dump< <%-name%> > (const <%-name%> & obj){
+        std::cout << "<%-name%> ";
+        dumpValue(obj,0);
+    }
+
+  
+}
+} 

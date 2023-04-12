@@ -1,0 +1,17 @@
+namespace reflect{
+
+struct TypeDescriptor_<%=CapName%> : TypeDescriptor {
+TypeDescriptor_<%=CapName%>() : TypeDescriptor{"<%=StrName%>", sizeof(<%=CName%>)} {}
+virtual bool isArithmetic() const override { return <%=Arithmetic%>; };
+virtual void dump(const void *obj, int /* unused */) const override {
+std::cout << "<%=CName%>{" << *(const int *)obj << "}" ; } }; 
+
+
+template <> TypeDescriptor *getPrimitiveDescriptor<<%=CName%>>() {
+    static TypeDescriptor_<%=CapName%> typeDesc;
+    return &typeDesc;
+}
+
+
+
+}; 
