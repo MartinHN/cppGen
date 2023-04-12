@@ -7,7 +7,7 @@ export function genIdentifiers(ts:TypeSystem,outFolder:string) : string[]{
     
    const  outFile= outFolder+"/identifierPool.h"
     const allIds = ts.getAllIds();
-    const ctx = {identifiers:allIds.map(i=>{return {name:i,shortKey:allIds.indexOf(i)}})}
+    const ctx = { identifiers: allIds.map(i => { return { name: i, shortKey: allIds.indexOf(i) + 1 } }) }
     const o = tmpl.parseTemplate("Identifiers.ejs", ctx)
     fs.writeFileSync(outFile,o);
 

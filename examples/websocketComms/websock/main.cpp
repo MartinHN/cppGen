@@ -84,7 +84,9 @@ public:
         bool needResp = reflect::processMessage(
             api, msg->get_raw_payload().data(), msg->get_payload().size(),
             respBuf, &serverHandler);
+        std::cout << "handled " << std::endl;
         if (needResp) {
+          std::cout << "sending resp " << std::endl;
           m_endpoint.send(hdl, respBuf.c_str(), respBuf.size(),
                           websocketpp::frame::opcode::binary);
         }

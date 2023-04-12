@@ -27,7 +27,10 @@ export function sendMessage(msg) {
 function getCodedArrayFromWasm(ctx, retVal) {
     // handleOpt
     if (retVal.valid === false)
+    {
         console.error("non valid opt ptr")
+        return new Uint8Array();
+    }
     if (retVal.valid === true) {
         console.log(" valid opt ptr")
         return getCodedArrayFromWasm(ctx, retVal.ptr)
@@ -49,12 +52,17 @@ export function initSocket(ctx, port = 9002) {
         clearTimeout(timerId);
         console.log("websocket opened");
         console.log(socket.extensions);
-        sendMessage("getState");
-        ctx.dump();
+        // sendMessage("getState");
+        // ctx.dump();
         const binCoded = ctx.buildIntModMessage("intValue", 60);
         //     const binCoded = ctx.getBin();
-        const arr = getCodedArrayFromWasm(ctx, binCoded);
-        socket.send(arr);
+        if (binCoded.valid) {
+            const arr = getCodedArrayFromWasm(ctx, binCoded);
+            socket.send(arr);
+        }
+        else {
+            console.error("invalid messageToSend")
+        }
     });
 
     // Listen for messages

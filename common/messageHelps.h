@@ -4,31 +4,51 @@ typedef unsigned char opCode_t;
 enum class MessageOpcode : opCode_t { set = 1, get = 2 };
 
 typedef unsigned char opCode_t;
-enum class GetSetType : opCode_t { member = 1, rootState = 2, method = 3 };
+enum class GetSetType : opCode_t { member = 1, method = 2, rootState = 3 };
+
+typedef unsigned char pack_ops_t;
+constexpr pack_ops_t packOpCode(MessageOpcode m, GetSetType gs) {
+  return (opCode_t(m) << 4) | (opCode_t(gs) & 0x0F);
+}
+
+constexpr std::tuple<opCode_t, opCode_t> unPackOpCode(pack_ops_t p) {
+  return std::tuple(opCode_t(p) >> 4, opCode_t(p & 0x0F));
+}
+
+constexpr bool tstPack(MessageOpcode m, GetSetType gs) {
+  return unPackOpCode(packOpCode(m, gs)) ==
+         std::tuple(opCode_t(m), opCode_t(gs));
+}
+
+static_assert(tstPack(MessageOpcode::set, GetSetType::member));
 
 template <typename T, typename NodeT>
 bool buildModMessage(NodeT &parentNode, const std::string &memberName, T i,
                      std::string &modBuf) {
   auto member =
-      reflect::variants::getMemberWithName(parentNode, memberName.data());
+      reflect::variants::getMemberWithName(parentNode, memberName.c_str());
   if (!member) {
     std::cout << "no member found for " << memberName << std::endl;
+    return {};
+  }
+  auto optMemberIdx =
+      reflect::variants::getIdxForMemberName(parentNode, memberName.c_str());
+  if (!optMemberIdx) {
+    std::cout << "no member Id found for " << memberName << std::endl;
     return {};
   }
 
   bool isValid = false;
   std::visit(
-      [&memberName, &i, &isValid, &modBuf](auto &&arg) {
+      [memberIdx = *optMemberIdx, &i, &isValid, &modBuf](auto &&arg) {
         using TRUT = std::decay_t<std::reference_wrapper<std::decay_t<T>>>;
         using ArgT = std::decay_t<decltype(arg)>;
         if (std::is_same<TRUT, ArgT>::value) {
           std::ostringstream oss;
-          reflect::serialize::write_value<opCode_t>(
-              oss, opCode_t(MessageOpcode::set));
-          // TODO full node address
-          reflect::serialize::write_value<opCode_t>(
-              oss, opCode_t(GetSetType::member));
-          reflect::serialize::write_value<std::string>(oss, memberName);
+          reflect::serialize::write_value<pack_ops_t>(
+              oss, packOpCode(MessageOpcode::set, GetSetType::member));
+
+          reflect::serialize::write_value<variants::MemberIdx>(oss, memberIdx);
           reflect::serialize::write_value<T>(oss, i);
           modBuf = oss.str();
           // std::cout << "good member type found for " << memberName << ","
@@ -56,8 +76,8 @@ bool buildCallMessage(NodeT &parentNode, reflect::proxy::MethodCallInfo *method,
     return false;
   }
   std::ostringstream oss;
-  reflect::serialize::write_value<opCode_t>(oss, opCode_t(MessageOpcode::set));
-  reflect::serialize::write_value<opCode_t>(oss, opCode_t(GetSetType::method));
+  reflect::serialize::write_value<pack_ops_t>(
+      oss, packOpCode(MessageOpcode::set, GetSetType::method));
 
   method->to_bin(oss);
   modBuf = oss.str();
@@ -78,8 +98,9 @@ bool buildCallResp(NodeT & /* parentNode */, const std::string &name,
     return false;
 
   std::ostringstream oss;
-  reflect::serialize::write_value<opCode_t>(oss, opCode_t(MessageOpcode::get));
-  reflect::serialize::write_value<opCode_t>(oss, opCode_t(GetSetType::method));
+  reflect::serialize::write_value<pack_ops_t>(
+      oss, packOpCode(MessageOpcode::get, GetSetType::method));
+
   reflect::serialize::write_value(oss, name);
 
   reflect::serialize::write_value<std::string>(oss, respBuf);
@@ -90,18 +111,16 @@ bool buildCallResp(NodeT & /* parentNode */, const std::string &name,
 
 void buildGetRootStateMessage(std::string &modBuf) {
   std::ostringstream oss;
-  reflect::serialize::write_value<opCode_t>(oss, opCode_t(MessageOpcode::get));
-  reflect::serialize::write_value<opCode_t>(oss,
-                                            opCode_t(GetSetType::rootState));
+  reflect::serialize::write_value<pack_ops_t>(
+      oss, packOpCode(MessageOpcode::get, GetSetType::rootState));
   modBuf = oss.str();
 }
 
 template <typename NodeT>
 void buildSetRootStateMessage(NodeT &parentNode, std::string &modBuf) {
   std::ostringstream oss;
-  reflect::serialize::write_value<opCode_t>(oss, opCode_t(MessageOpcode::set));
-  reflect::serialize::write_value<opCode_t>(oss,
-                                            opCode_t(GetSetType::rootState));
+  reflect::serialize::write_value<pack_ops_t>(
+      oss, packOpCode(MessageOpcode::set, GetSetType::rootState));
   reflect::serialize::write_value<NodeT>(oss, parentNode);
 
   modBuf = oss.str();
@@ -127,26 +146,32 @@ template <typename T>
 bool processMessage(T &parentNode, char *beg, size_t length,
                     std::string &respBuf, MessageProcessorHandler *handler) {
   std::istringstream iss(std::string(beg, length));
-  opCode_t op = 0;
-  reflect::serialize::parse_value<opCode_t>(op, iss);
-
+  pack_ops_t op_pack = 0;
+  reflect::serialize::parse_value<pack_ops_t>(op_pack, iss);
+  auto [getSetType, op] = unPackOpCode(op_pack);
   if (MessageOpcode(op) == MessageOpcode::set ||
       (MessageOpcode(op) == MessageOpcode::get)) {
     bool isSet = MessageOpcode(op) == MessageOpcode::set;
-    opCode_t getSetType = 0;
-    reflect::serialize::parse_value<opCode_t>(getSetType, iss);
+
     //////////
     // members
     ////////////
     if (GetSetType(getSetType) == GetSetType::member) {
-      std::string memberName;
-      reflect::serialize::parse_value(memberName, iss);
-      auto member =
-          reflect::variants::getMemberWithName(parentNode, memberName.c_str());
+      variants::MemberIdx memberIdx;
+      reflect::serialize::parse_value<variants::MemberIdx>(memberIdx, iss);
+
+      auto member = reflect::variants::getMemberWithIdx(parentNode, memberIdx);
       if (!member) {
-        std::cout << "no member found for " << memberName << std::endl;
+        std::cout << "no member found for  idx" << memberIdx << std::endl;
         return {};
-      } else {
+      }
+      auto memberName =
+          reflect::variants::getMemberNameForIdx(parentNode, memberIdx);
+      if (!memberName) {
+        std::cout << "no member name found for  idx" << memberIdx << std::endl;
+        return {};
+      }
+      {
         if (isSet) {
           std::visit(
               [&iss](auto &&arg) {
@@ -189,11 +214,8 @@ bool processMessage(T &parentNode, char *beg, size_t length,
       } else {
         std::cout << "get rootState " << std::endl;
         std::ostringstream oss;
-        reflect::serialize::write_value<opCode_t>(oss,
-                                                  opCode_t(MessageOpcode::set));
-        // TODO full node address
-        reflect::serialize::write_value<opCode_t>(
-            oss, opCode_t(GetSetType::rootState));
+        reflect::serialize::write_value<pack_ops_t>(
+            oss, packOpCode(MessageOpcode::set, GetSetType::rootState));
         reflect::serialize::write_value<T>(oss, parentNode);
         respBuf = oss.str();
         if (handler)

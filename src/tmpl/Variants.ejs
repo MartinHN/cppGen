@@ -26,13 +26,53 @@ namespace variants{
 
     template<typename T>
     OptMemberRef getMemberWithName(T& obj,const char * name );
-
     <% for (const c of classes) {if(!c.isUserDefined) continue; %>
         template<>
         OptMemberRef getMemberWithName< <%- c.name %> >( <%- c.name %> & obj,const char * name){
             <% for(const m of c.members) {%>
                 if(strcmp(name,"<%=m.name%>")==0)
                     return AnyMemberRefVar(std::ref(obj.<%=m.name%>));
+            <% } %>
+            return {};
+        }
+    <% } %>
+
+
+    typedef unsigned char MemberIdx;
+    template<typename T>
+    OptMemberRef getMemberWithIdx(T& obj,MemberIdx idx );
+    <% for (const c of classes) {if(!c.isUserDefined) continue; %>
+        template<>
+        OptMemberRef getMemberWithIdx< <%- c.name %> >( <%- c.name %> & obj,MemberIdx idx){
+            <% for(const [i,m] of Object.entries(c.members)) {%>
+                if(idx==<%=i%>)
+                    return AnyMemberRefVar(std::ref(obj.<%=m.name%>));
+            <% } %>
+            return {};
+        }
+    <% } %>
+
+    template<typename T>
+    const char* getMemberNameForIdx(T& obj,MemberIdx idx );
+    <% for (const c of classes) {if(!c.isUserDefined) continue; %>
+        template<>
+        const char* getMemberNameForIdx< <%- c.name %> >( <%- c.name %> & obj,MemberIdx idx){
+            <% for(const [i,m] of Object.entries(c.members)) {%>
+                if(idx==<%=i%>)
+                    return "<%=m.name%>";
+            <% } %>
+            return {};
+        }
+    <% } %>
+
+    template<typename T>
+    std::optional<MemberIdx > getIdxForMemberName(T& obj,const char * name );
+    <% for (const c of classes) {if(!c.isUserDefined) continue; %>
+        template<>
+        std::optional<MemberIdx > getIdxForMemberName< <%- c.name %> >( <%- c.name %> & obj,const char * name){
+            <% for(const [i,m] of Object.entries(c.members)) {%>
+                if(strcmp(name,"<%=m.name%>")==0)
+                    return <%=i%>;
             <% } %>
             return {};
         }
