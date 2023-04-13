@@ -4,6 +4,7 @@ import { genDump } from "./genDump"
 import { genSerialize } from "./genSerialize"
 import { genIdentifiers } from "./genIdentifiers"
 import { genVariants } from "./genVariants"
+import { genJs } from "./genJs"
 import { genProxy } from "./genProxy"
 import { execSync } from "child_process"
 import * as fs from "fs"
@@ -15,14 +16,25 @@ function safeClean(of: string) {
     if (of.length < 10) {
         throw Error("folder path to clean is too short?" + of)
     }
-    execSync("rm -r " + of);
+    if (fs.existsSync(of)) { execSync("rm -r " + of); }
     execSync("mkdir " + of);
 }
 
 
+function safeCpFolder(inF: string, outF: string) {
+    console.log("will copy " + inF + "to" + outF)
+    if (path.dirname(inF) == path.dirname(outF)) {
+        console.log("not copying to same dir")
+        return;
+    }
+    execSync("cp -r " + inF + " " + outF);
+}
 
-export function genAll(jsonPath: string, outFolder: string) {
+
+export function genAll(jsonPath: string, outFolder: string, outJsFolder?: string) {
     safeClean(outFolder)
+    const localGenPath = __dirname + "/../common"
+    safeCpFolder(localGenPath, outFolder + "/common")
     ///////// 
     // added prim
     const addedFiles = new Array<string>();
@@ -51,13 +63,23 @@ export function genAll(jsonPath: string, outFolder: string) {
 
     let res = "// main header file\n"
     res += `#if !HAS_CUSTOM_API_INCLUDED\n// original API File\n#include "${api.metadata?.originalFile}"\n#endif\n`
-    res += "#include \"../common/common.h\"\n"
+    res += "#include \"./common/common.h\"\n"
     allIncludes.map(e => res += `#include "${path.relative(outFolder, e)}"\n`)
-    res += "#include \"../common/messageHelps.h\"\n";
+    res += "#include \"./common/messageHelps.h\"\n";
     fs.writeFileSync(outFolder + "/gen.h", res);
 
 
-    const lintRes = execSync(`find ${outFolder} -iname *.h -o -iname *.cpp | xargs clang-format -style="{SortIncludes: Never}" -i`)
+    const lintRes = execSync(`find ${outFolder} -iname "*.h" -o -iname "*.cpp" | xargs clang-format -style="{SortIncludes: Never}" -i`)
 
-    console.log("SUCCCCCESSSS", lintRes.toString())
+    let jslintRes = Buffer.from("");
+    if (!!outJsFolder) {
+        safeClean(outJsFolder)
+        genJs(api, outJsFolder)
+        const lintCmd = `find ${outJsFolder} -iname "*.js" -o -iname "*.ts" ! -iname '*prelude.ts' | xargs clang-format -style="{SortIncludes: Never}" -i`
+        console.log(lintCmd);
+        jslintRes = execSync(lintCmd)
+    }
+    console.log("SUCCCCCESSSS", lintRes.toString(), jslintRes.toString())
+
+    return api;
 }

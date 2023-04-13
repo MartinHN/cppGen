@@ -1,12 +1,12 @@
 import * as fs from 'fs'
 
-class MemberType {
+export class MemberType {
     constructor(public type: string, public name: string) { }
 }
 
 type MembersCollection = MemberType[];
 
-class MethodType {
+export class MethodType {
     constructor(public returnType: string, public name: string, public args: MemberType[]) {
     }
 
@@ -19,6 +19,7 @@ class MethodType {
     getFunctionArgsWithVariables() {
         return this.getArgTypeList().map((e, i) => { return e + " " + this.getArgVarName(i) });
     }
+
 
     getArgVarName(i: number) {
         return "inArg_" + i;

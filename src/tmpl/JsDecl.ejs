@@ -1,0 +1,25 @@
+import {FixedLengthArray} from "./JsDecl_prelude"
+<% for(const [k,v] of Object.entries(classesToInclude)){ -%>
+  import {<%-Array.from(v).join(",")%>}  from "./<%-k%>"
+<% } //endfor -%>
+
+export class <%-name%>_Data {
+
+  // Members
+  <% for(const m of members){ 
+let comment = m.type.includes("unsupported")?"//":"";-%>
+<%-comment%>public <%-m.name%>: <%-m.type %>;
+  <% } //endfor -%>
+};  // end Data 
+
+export interface <%-name%>_Interface {
+    // Members
+    <% for(const m of members){ 
+let comment = m.type.includes("unsupported")?"//":"";-%>
+<%-comment%> <%-m.name%>: <%-m.type %>;
+  <% } //endfor -%>
+   // Methods
+   <% for(const m of methods){ -%>
+     <%-m.name%>(<%-m.getFunctionArgsWithVariables()%>):<%-m.returnType-%>;
+  <% } //endfor -%>
+};  // end Interface 
