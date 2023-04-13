@@ -23,7 +23,7 @@ export function genSerialize(typeSyst: TypeSystem, outFolder: string): string[] 
      if (localFiles.length) {
          const localName = "serializeBin_prelude.h";
          const fN = moduleFolder + "/" + localName;
-         const o = tmpl.parseTemplate("serializeBin_prelude.ejs", {})
+         const o = tmpl.parseTemplate("serializeBin_prelude.cpp", {})
          fs.writeFileSync(fN, o);
          localFiles.unshift(localName);
 

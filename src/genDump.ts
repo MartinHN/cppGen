@@ -22,7 +22,7 @@ import * as tmpl from "./parseTemplate"
    if (dumpFiles.length) {
      const localName = "prelude_DebugDump.h";
      const fN = dumpF + "/" + localName;
-     const o = tmpl.parseTemplate("DebugDump_prelude.ejs", {})
+     const o = tmpl.parseTemplate("DebugDump_prelude.cpp", {})
      fs.writeFileSync(fN, o);
      dumpFiles.unshift(localName);
 

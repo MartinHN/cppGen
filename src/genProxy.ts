@@ -20,7 +20,7 @@ export function genProxy(typeSyst: TypeSystem, outFolder: string): string[] {
     if (localFiles.length) {
         const localName = "Proxy_prelude.h";
         const fN = moduleFolder + "/" + localName;
-        const o = tmpl.parseTemplate("Proxy_prelude.ejs", {})
+        const o = tmpl.parseTemplate("Proxy_prelude.cpp", {})
         fs.writeFileSync(fN, o);
         localFiles.unshift(localName);
 
