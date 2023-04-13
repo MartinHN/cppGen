@@ -12,9 +12,18 @@ export function genProxy(typeSyst: TypeSystem, outFolder: string): string[] {
     for (const cl of typeSyst.classes) {
         const localName = cl.name + "_proxy.h";
         const fN = moduleFolder + "/" + localName;
-        const o = tmpl.parseTemplate("proxy.ejs", cl)
+        const o = tmpl.parseTemplate("Proxy.ejs", cl)
         fs.writeFileSync(fN, o);
         localFiles.push(localName);
+    }
+
+    if (localFiles.length) {
+        const localName = "Proxy_prelude.h";
+        const fN = moduleFolder + "/" + localName;
+        const o = tmpl.parseTemplate("Proxy_prelude.ejs", {})
+        fs.writeFileSync(fN, o);
+        localFiles.unshift(localName);
+
     }
 
     const moduleH = moduleFolder + "/proxy.h";

@@ -20,6 +20,14 @@ export function genSerialize(typeSyst: TypeSystem, outFolder: string): string[] 
         localFiles.push(localName);
     }
 
+     if (localFiles.length) {
+         const localName = "serializeBin_prelude.h";
+         const fN = moduleFolder + "/" + localName;
+         const o = tmpl.parseTemplate("serializeBin_prelude.ejs", {})
+         fs.writeFileSync(fN, o);
+         localFiles.unshift(localName);
+
+     }
     const moduleH = moduleFolder+"/serialize.h";
     fs.writeFileSync(moduleH,localFiles.map(e=>`#include "${e}"`).join("\n"));
 
