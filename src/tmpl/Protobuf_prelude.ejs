@@ -1,0 +1,11 @@
+syntax = "proto3";
+package proto;
+
+<% for(const [k,m] of Object.entries(commonMessages)){-%>
+    message <%-k%> {
+        <% let i = 0; for(const e of m){ i++; const mType = e.type.replace("vec_","repeated ")-%>
+            <%- mType%> <%- e.name%> = <%- i%>;
+        <% } //endfor -%>
+    }
+    
+<% } //endfor -%>

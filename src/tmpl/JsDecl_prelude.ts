@@ -6,3 +6,15 @@ export type FixedLengthArray<T, L extends number, TObj = [T, ...Array<T>]> =
     [I: number]: T
     [Symbol.iterator]: () => IterableIterator<T>
   }
+
+
+export class ModifiableArray<T> extends Array<T> {
+  constructor(public cf: any) {
+    super()
+  }
+  emplace(args: any[]) {
+    const newO = new this.cf();
+    console.log("emplace", newO);
+    this.push(newO)
+  }
+}

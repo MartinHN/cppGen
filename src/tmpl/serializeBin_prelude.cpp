@@ -4,7 +4,8 @@
 
 #define UAPI_HAS_BINSERIALIZE 1
 
-namespace reflect {
+using namespace uapi::traits;
+namespace uapi {
 namespace serialize {
 
 using OutStr = std::ostream;
@@ -23,25 +24,20 @@ bool checkStream(std::ios &s) {
   return false;
 }
 
-template <class T> struct is_vector : std::false_type {};
-template <class T, class A>
-struct is_vector<std::vector<T, A>> : std::true_type {};
-template <class T, size_t A>
-struct is_vector<std::array<T, A>> : std::true_type {};
+// VarInt
 template <typename T>
-concept Vec = is_vector<std::decay_t<T>>::value;
-
-// Tuples
+concept VarInt = std::is_unsigned_v<T> && sizeof(T) > 1;
+typedef uint8_t VarIntAtomic;
 
 template <typename T>
-concept TupleLike = requires(T a) {
-                      std::tuple_size<T>::value;
-                      std::get<0>(a);
-                    };
-
-// Strs
-template <typename T>
-concept Str = std::is_same_v<std::decay_t<T>, std::string>;
+concept SVarInt = std::is_integral_v<T> && !
+VarInt<T> && sizeof(T) > 1;
+template <SVarInt T> uint64_t SVarIntToU(T v) {
+  return v < 0 ? (-2 * v + 1) : 2 * v;
+}
+template <SVarInt T> T UToSVarInt(uint64_t v) {
+  return v % 2 == 1 ? -(v - 1) / 2 : v / 2;
+}
 
 // BasicType
 template <typename T>
@@ -50,6 +46,15 @@ concept BasicType = std::is_arithmetic_v<T>;
 template <BasicType T> size_t true_size(T o) {
   static_assert(sizeof(std::decay_t<T>) >= sizeof(char));
   return sizeof(std::decay_t<T>);
+}
+
+template <VarInt T> size_t true_size(T o) {
+  int ms = 1;
+  while (o > 127) {
+    o >>= 7;
+    ms++;
+  }
+  return ms;
 }
 
 template <TupleLike T> size_t true_size(T o) {
@@ -71,8 +76,43 @@ template <Str T> size_t true_size(const T &obj) {
 }
 
 template <typename T> void write_value(OutStr &os, const T &o) {
-  if (checkStream(os))
+  if (checkStream(os)) {
     os.write((char *)&o, true_size<std::decay_t<T>>(o));
+    //   size_t max = true_size<std::decay_t<T>>(o);
+    //   for (size_t k = 0; k < max; k++) {
+    //     auto i = getEndianIndex(k, max);
+    //     os.write(((char *)&o)[k], 1);
+    //   }
+  }
+}
+
+template <VarInt T> void write_value(OutStr &os, const T &o) {
+  if (checkStream(os)) {
+    VarIntAtomic output[sizeof(T)];
+    size_t outputSize = 0;
+    uint64_t value = o;
+    output[outputSize] = VarIntAtomic(value & 127);
+    outputSize++;
+    while (value > 127) {
+      //|128: Set the next byte flag
+      value >>= 7;
+      output[outputSize] = VarIntAtomic(value & 127) | 128;
+
+      // Remove the seven bits we just wrote
+      outputSize++;
+    }
+    for (int i = outputSize - 1; i >= 0; i--) {
+      // std::cout << "writing : ";
+      // printf("%.2X\n", output[i]);
+      write_value<VarIntAtomic>(os, output[i]);
+    }
+  }
+}
+
+template <SVarInt T> void write_value(OutStr &os, const T &o) {
+  if (checkStream(os)) {
+    write_value(os, SVarIntToU(o));
+  }
 }
 
 template <> void write_value<std::string>(OutStr &os, const std::string &o) {
@@ -88,6 +128,10 @@ template <Vec T> void write_value(OutStr &os, const T &o) {
     write_value(os, e);
 }
 
+template <TupleLike T> void write_value(OutStr &os, const T &o) {
+  std::apply([&os](auto &&...args) { ((write_value(os, args)), ...); }, o);
+}
+
 /////////////////////////////
 // from_bin
 ///////////////////////////
@@ -101,9 +145,42 @@ template <typename T> struct IsRef<T &> {
 
 template <typename T> void parse_value(T &obj, InStr &is) {
   static_assert(sizeof(std::decay_t<T>) >= sizeof(char));
-  checkStream(is);
   static_assert(IsRef<T>::result == false);
-  is.read((char *)&obj, sizeof(std::decay_t<T>));
+  if (checkStream(is)) {
+    is.read((char *)&obj, sizeof(std::decay_t<T>));
+    // size_t max = sizeof<std::decay_t<T>>(o);
+    // for (size_t k = 0; k < max; k++) {
+    //   auto i = getEndianIndex(k, max);
+    //   is.read(((char *)&o)[k], 1);
+    // }
+  }
+}
+
+template <VarInt T> void parse_value(T &obj, InStr &is) {
+  VarIntAtomic input;
+  parse_value<VarIntAtomic>(input, is);
+  obj = 0;
+  // std::cout << "parse VarInt : ";
+  // printf("%.2X\n", input);
+  while (input & 128) {
+    // std::cout << "  slhifting : ";
+    obj |= (input & 127);
+    obj <<= 7;
+    // printf(" %.2X : ", input);
+    // printf(" %.2llX \n", uint64_t(obj));
+    // If the next-byte flag is set
+    parse_value<VarIntAtomic>(input, is);
+  }
+  obj |= input;
+  // std::cout << "  lastB : ";
+  // printf(" %.2X : ", input);
+  // printf(" %.2llX \n", uint64_t(obj));
+}
+
+template <SVarInt T> void parse_value(T &obj, InStr &is) {
+  uint64_t zz;
+  parse_value(zz, is);
+  obj = UToSVarInt<T>(zz);
 }
 
 template <Vec T> struct can_resize : std::false_type {};
@@ -118,6 +195,10 @@ template <Vec T> void parse_value(T &obj, InStr &is) {
   for (vec_size_t i = 0; i < sz; i++) {
     parse_value(obj[i], is);
   }
+}
+
+template <TupleLike T> void parse_value(T &obj, InStr &is) {
+  std::apply([&is](auto &&...args) { ((parse_value(args, is)), ...); }, obj);
 }
 
 template <> void parse_value<std::string>(std::string &obj, InStr &is) {
@@ -136,6 +217,5 @@ template <typename T> void from_bin_str(T &obj, char *str, size_t length) {
   iss.rdbuf()->pubsetbuf(str, length);
   from_bin<T>(obj, iss);
 }
-
 } // namespace serialize
-} // namespace reflect
+} // namespace uapi

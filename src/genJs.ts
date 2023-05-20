@@ -14,7 +14,7 @@ function getInnerTemplate(oriT: string) {
 
 function getJsTypeForCType(typeSyst: TypeSystem, t: string, accessed: { [key: string]: Set<string> }): string {
     if (t.includes("*") || t.includes("&")) {
-        throw new Error("pointers and ref not supported")
+        throw new Error("pointers and ref not supported for now")
         return "unsupported"
     }
     if (typeSyst.isClassUserDefined(t)) {
@@ -44,7 +44,7 @@ function getJsTypeForCType(typeSyst: TypeSystem, t: string, accessed: { [key: st
 
     if (rawT.startsWith("std::vector")) {
         const innerT = getInnerTemplate(rawT);
-        return "Array<" + getJsTypeForCType(typeSyst, innerT, accessed) + ">";
+        return "ModifiableArray<" + getJsTypeForCType(typeSyst, innerT, accessed) + ">";
     }
     if (rawT.startsWith("std::array")) {
         const innerT = getInnerTemplate(rawT).split(",");
@@ -77,7 +77,6 @@ function appendJsTypes(typeSyst: TypeSystem, cl: APIClass) {
 
 class JSMethod extends MethodType {
     getFunctionArgsWithVariables() {
-        console.log("calling js verion")
         return this.getArgTypeList().map((e, i) => { return this.getArgVarName(i) + ":" + e });
     }
 }
@@ -108,8 +107,8 @@ export function genJsDecl(typeSyst: TypeSystem, outFolder: string): string[] {
         localFiles.unshift(localName);
     }
 
-    const jsFolderMain = jsFolder + "/main.js"
-    fs.writeFileSync(jsFolderMain, localFiles.map(e => `export * as ${e.split("_")[0]} from "${e}"`).join("\n"));
+    const jsFolderMain = jsFolder + "/main.ts"
+    fs.writeFileSync(jsFolderMain, localFiles.map(e => `export * as ${e.split("_")[0]} from "./${e}"`).join("\n"));
     return [jsFolderMain];
 }
 

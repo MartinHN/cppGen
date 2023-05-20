@@ -1,4 +1,4 @@
-import {FixedLengthArray} from "./JsDecl_prelude"
+import {FixedLengthArray,ModifiableArray} from "./JsDecl_prelude"
 <% for(const [k,v] of Object.entries(classesToInclude)){ -%>
   import {<%-Array.from(v).join(",")%>}  from "./<%-k%>"
 <% } //endfor -%>
@@ -6,10 +6,29 @@ import {FixedLengthArray} from "./JsDecl_prelude"
 export class <%-name%>_Data {
 
   // Members
-  <% for(const m of members){ 
-let comment = m.type.includes("unsupported")?"//":"";-%>
-<%-comment%>public <%-m.name%>: <%-m.type %>;
+  <% for(const m of members){
+    const getInnerTemplate=(oriT)=> {
+        res =  "" + oriT.substring(oriT.indexOf("<") + 1, oriT.lastIndexOf(">"));
+        return res.replace("_Interface","_Data")
+    } 
+      let comment = m.type.includes("unsupported")?"//":"";
+      let init =m.init
+      if(init==undefined){
+        if (m.type.includes("ModifiableArray")) init="new "+m.type+"("+getInnerTemplate(m.type)+")";
+        else if (m.type.includes("<")) init="new "+m.type+"()";
+        else if(m.type.includes("number")) init = 0;
+        else if (m.type.includes("string"))init = '""';
+      }
+       -%>
+      <%-comment%>public <%-m.name%>: <%-m.type %> =<%- init%>;
   <% } //endfor -%>
+
+  <% for(const m of methods){if(m.opts?.contains("server-only"))continue; %>
+      <%-m.name%>(<%-m.getFunctionArgsWithVariables()%>):<%-m.returnType-%>{
+        // call on server
+        console.log("should call js");
+      }
+  <% } // end for methods%> 
 };  // end Data 
 
 export interface <%-name%>_Interface {

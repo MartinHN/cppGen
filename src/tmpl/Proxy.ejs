@@ -2,10 +2,10 @@
 #include <type_traits>
 #include <sstream> //for string to stream convs
 
-namespace reflect{
+namespace uapi{
 namespace proxy{
 
-struct <%-name%>Proxy :protected MemberContainer{
+struct <%-name%>Proxy :public MemberContainer{
     <%-name%>Proxy(<%-name%> & o):obj(o)
     <% for(const m of members){ -%>
       ,<%=m.name%>("<%=m.name%>",obj.<%=m.name%>,*this)
@@ -13,25 +13,14 @@ struct <%-name%>Proxy :protected MemberContainer{
     {};
 
 
-  std::function<void(const std::string & name,variants::AnyMemberRefVar member,ProxySetter*from)>onMemberChange;
-  void memberModifiedCb(const std::string & memberName,variants::AnyMemberRefVar memberVal,ProxySetter*from)override{
-    if(onMemberChange){
-      onMemberChange(memberName,memberVal,from);
-    }
-  };
 
-  std::function<void(MethodCallInfo* method,ProxySetter*from)>onMethodCall;
-  void methodCalledCb(MethodCallInfo * callInfo,ProxySetter *from){
-    if(onMethodCall){
-      onMethodCall(callInfo,from);
-    }
-  }
   // Members
   <%-name%> & obj;
   <% for(const m of members){ -%>
     MemberImpl<<%-m.type%>> <%=m.name%>;
   <% } //endfor -%>
 
+  // overridable functions
   <% for(const f of methods){ -%>
     virtual void <%=f.name%>(<%-f.getFunctionArgsWithVariables()%> <% if(f.hasArgs()) {%>,<% } %>
     ProxySetter* from=nullptr){
@@ -43,8 +32,6 @@ struct <%-name%>Proxy :protected MemberContainer{
     <% } -%>
     );
     methodCalledCb(&info,from);
-    // todo full function passing
-
     }
   <% } //endfor -%>
 

@@ -1,4 +1,4 @@
-namespace reflect{
+namespace uapi{
 namespace serialize{
     
 using OutStr = std::ostream;
@@ -22,7 +22,7 @@ void to_bin_<%-name%> (const <%-name%> & obj,OutStr & os){
 //template<typename T>
     void to_bin_str_<%-name%> (const <%-name%> & obj,std::string & outBuf){
         std::ostringstream oss;
-        reflect::serialize::to_bin_<%-name%>(obj,oss);
+        uapi::serialize::to_bin_<%-name%>(obj,oss);
         outBuf = oss.str();
     }
 

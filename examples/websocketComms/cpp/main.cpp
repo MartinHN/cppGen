@@ -6,7 +6,6 @@
 RootAPI cliApi;
 
 #include <emscripten/bind.h>
-#include <emscripten/html5.h>
 
 namespace e = emscripten;
 

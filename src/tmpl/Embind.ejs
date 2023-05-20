@@ -1,0 +1,67 @@
+
+
+template<>
+MessagesRawType buildMemberModMessage<<%=name%>>(<%=name%> & api,std::string  memberName){
+  std::string modBuf;
+  <% for(const m of members){ -%>
+   if("<%=m.name%>"==memberName)
+   {
+    bool isValid=uapi::buildModMessage<<%-m.type%>>(api,memberName,api.<%=m.name%>,modBuf);
+    if(!isValid)return {};
+    return strToJs(modBuf);
+  }
+  <% } //endfor -%>
+  return {};
+}
+
+
+template<>
+MessagesRawType buildMemberGetMessage<<%=name%>>(<%=name%> & api,std::string  memberName){
+  std::string modBuf;
+  <% for(const m of members){ -%>
+   if("<%=m.name%>"==memberName)
+   {
+    bool isValid=uapi::buildGetMessage<<%=name%>>(api,memberName,modBuf);
+    if(!isValid)return {};
+    return strToJs(modBuf);
+  }
+  <% } //endfor -%>
+  return {};
+}
+
+/*
+void dump_<%=name%>(<%=name%> & api){
+uapi::debug::dump(api);
+};
+*/
+
+EMSCRIPTEN_BINDINGS(<%-name%>) {
+
+emscripten::class_<<%-name%>>("<%-name%>")
+  .constructor()
+  <% for(const m of members){ -%>
+    .property("<%=m.name%>",&<%-name%>::<%-m.name%>)
+  <% } //endfor -%>
+  <% for(const f of methods){ -%>
+    .function("<%=f.name%>", &<%-name%>::<%-f.name%>)
+  <% } //endfor -%>
+  ;
+  
+  /*  
+  emscripten::function("dump_<%=name%>", &dump_<%=name%>);
+  emscripten::function("buildMemberModMessage_<%=name%>", &buildMemberModMessage<<%=name%>>);
+  emscripten::function("buildMemberGetMessage_<%=name%>", &buildMemberGetMessage<<%=name%>>);
+  */
+
+  // register vector types
+  <% for(const m of members){ 
+    // console.log(m)
+    const ct = m.type;
+    if(!ct.includes("vector"))continue;
+    const innerT = ct.substring(ct.indexOf("<") + 1, ct.lastIndexOf(">"));
+    const niceN = ct.replaceAll("::","_").replaceAll("<","_").replaceAll(">","_")
+    -%>
+    
+    emscripten::register_vector<<%=innerT%>>("<%-niceN%>");
+    <% } //endfor -%>
+};

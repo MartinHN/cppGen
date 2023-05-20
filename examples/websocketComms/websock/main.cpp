@@ -23,29 +23,29 @@ using websocketpp::connection_hdl;
 void broadcastMsg(char *data, size_t len, connection_hdl *butNotThis = nullptr);
 struct ServerMessageHandler : public reflect::MessageProcessorHandler {
 
-  void memberSet(const std::string &name,
-                 reflect::variants::AnyMemberRefVar &v) override {
+  void onMemberSet(const std::string &name,
+                   reflect::variants::AnyMemberRefVar &v) override {
     broadcastMsg(msgPtr->get_raw_payload().data(), msgPtr->get_payload().size(),
                  &processed_con);
   };
-  void memberGet(const std::string &name,
-                 reflect::variants::AnyMemberRefVar &v) override{};
-  void rootStateSet() override {
+  void onMemberGet(const std::string &name,
+                   reflect::variants::AnyMemberRefVar &v) override{};
+  void onRootStateSet() override {
     broadcastMsg(msgPtr->get_raw_payload().data(), msgPtr->get_payload().size(),
                  &processed_con);
   }
-  void rootStateGet() override {
+  void onRootStateGet() override {
     // TODO remove this
     // broadcastMsg(msgPtr->get_raw_payload().data(),
     // msgPtr->get_payload().size(),
     //              &processed_con);
   }
-  void functionCall(const std::string &name,
-                    reflect::variants::AnyMethodArgsValue &args,
-                    reflect::variants::AnyMethodReturnValue &res) override{};
+  void onFunctionCall(const std::string &name,
+                      reflect::variants::AnyMethodArgsValue &args,
+                      reflect::variants::AnyMethodReturnValue &res) override{};
   // the only unimplemented functino, it's app reponsability to know what to do
-  void functionResp(const std::string &name,
-                    reflect::variants::AnyMethodReturnValue &res) override{};
+  void onFunctionResp(const std::string &name,
+                      reflect::variants::AnyMethodReturnValue &res) override{};
 
   WebsockMsgPtr msgPtr;
   connection_hdl processed_con;

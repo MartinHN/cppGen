@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+
+import "prelude.proto";
+
+package proto;
+
+
+service <%-cl.name%>_service {
+    // set/get data
+    rpc setData (<%-cl.name%>_data) returns (Void_Msg) {}
+    rpc getData (Void_Msg) returns (<%-cl.name%>_data) {}
+
+    <% for(const m of cl.members){const msgT =m.type+"_Msg";  -%>
+        rpc set_<%-m.name%>(<%-msgT%>) returns (Void_Msg) {}
+        rpc get_<%-m.name%>(Void_Msg) returns (<%-msgT%>) {}
+        <% if (msgT.startsWith("vec_")){const eT = m.type.replace("vec_",""); %>
+            rpc emplace_<%-m.name%>(<%-eT%>) returns (Void_Msg) {}
+            rpc remove_<%-m.name%>(uint32_Msg) returns (Void_Msg) {}
+        <% } //endif -%>
+    <% } //endfor -%>
+  }
+
+
