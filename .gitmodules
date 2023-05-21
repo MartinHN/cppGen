@@ -1,0 +1,3 @@
+[submodule "src/common/lib/wsServer/websocketpp"]
+	path = src/common/lib/wsServer/websocketpp
+	url = https://github.com/zaphoyd/websocketpp.git
