@@ -161,9 +161,10 @@ bool buildCallMessage(NodeT &parentNode, const std::string &childAddr,
     dbg.print("method idx not found");
     return false;
   }
+  dbg.print("build call for", childAddr, methodName);
   std::ostringstream oss;
   uapi::serialize::write_value<pack_ops_t>(
-      oss, packOpCode(MessageOpcode::set, GetSetType::method));
+      oss, packOpCode(MessageOpcode::get, GetSetType::method));
   uapi::serialize::write_value<variants::MemberAddressInt>(oss, iAddr);
   uapi::serialize::write_value<variants::MemberIdx>(oss, *methodIdx);
   uapi::serialize::write_value<variants::AnyMethodArgsTuple>(oss, args);
@@ -172,45 +173,67 @@ bool buildCallMessage(NodeT &parentNode, const std::string &childAddr,
   return true;
 }
 
-template <typename NodeT>
-bool buildCallResp(NodeT & /* parentNode */, const std::string &name,
+bool buildCallResp(const variants::MemberAddressInt &memberAddr,
+                   const variants::MemberIdx &funIdx,
                    const variants::AnyMethodReturnValue &resp,
                    std::string &modBuf) {
-  std::ostringstream ossResp;
+  bool needResp = true;
   std::visit(
-      [&ossResp](auto &&arg) { uapi::serialize::write_value(ossResp, arg); },
+      [&needResp](auto &&arg) {
+        using T = std::decay_t<decltype(arg)>;
+        needResp = !std::is_same_v<uapi::variants::VoidReturn, T>;
+      },
       resp);
-  auto respBuf = ossResp.str();
-  if (respBuf.size() == 0)
-    return false;
 
+  if (!needResp)
+    return false;
   std::ostringstream oss;
   uapi::serialize::write_value<pack_ops_t>(
-      oss, packOpCode(MessageOpcode::get, GetSetType::method));
+      oss, packOpCode(MessageOpcode::set, GetSetType::method));
 
-  uapi::serialize::write_value(oss, name);
-
-  uapi::serialize::write_value<std::string>(oss, respBuf);
+  uapi::serialize::write_value(oss, memberAddr);
+  uapi::serialize::write_value(oss, funIdx);
+  std::visit([&oss](auto &&arg) { uapi::serialize::write_value(oss, arg); },
+             resp);
 
   modBuf = oss.str();
   return true;
 }
 
-void buildGetRootStateMessage(std::string &modBuf) {
+template <typename NodeT>
+bool buildGetRootStateMessage(NodeT &parentNode, const std::string &childAddr,
+                              std::string &modBuf) {
   std::ostringstream oss;
   uapi::serialize::write_value<pack_ops_t>(
       oss, packOpCode(MessageOpcode::get, GetSetType::rootState));
+  auto strAddr = uapi::variants::strAddrFromStr(childAddr);
+  auto ointAddr = uapi::variants::addressStrToInt(parentNode, strAddr);
+  if (!ointAddr) {
+    dbg.print("[call] no member found for ", childAddr);
+    return false;
+  }
+  uapi::serialize::write_value(oss, *ointAddr);
   modBuf = oss.str();
+  return true;
 }
 
 template <typename NodeT>
-void buildSetRootStateMessage(NodeT &parentNode, std::string &modBuf) {
+bool buildSetRootStateMessage(NodeT &parentNode, std::string &childAddr,
+                              std::string &modBuf) {
   std::ostringstream oss;
   uapi::serialize::write_value<pack_ops_t>(
       oss, packOpCode(MessageOpcode::set, GetSetType::rootState));
+  auto strAddr = uapi::variants::strAddrFromStr(childAddr);
+  auto ointAddr = uapi::variants::addressStrToInt(parentNode, strAddr);
+  if (!ointAddr) {
+    dbg.print("[call] no member found for ", childAddr);
+    return false;
+  }
+  uapi::serialize::write_value(oss, *ointAddr);
   uapi::serialize::write_value<NodeT>(oss, parentNode);
 
   modBuf = oss.str();
+  return true;
 }
 
 struct MessageProcessorHandler {
@@ -218,8 +241,8 @@ struct MessageProcessorHandler {
                            uapi::variants::AnyMemberRefVar &v){};
   virtual void onMemberGet(const std::string &name,
                            uapi::variants::AnyMemberRefVar &v){};
-  virtual void onRootStateSet() {}
-  virtual void onRootStateGet() {}
+  virtual void onRootStateSet(const std::string &addr) {}
+  virtual void onRootStateGet(const std::string &addr) {}
   virtual void onFunctionCall(const std::string &name,
                               uapi::variants::AnyMethodArgsTuple &args,
                               uapi::variants::AnyMethodReturnValue &res){};
@@ -312,16 +335,41 @@ bool processMessage(T &parentNode, char *beg, size_t length,
       dbg.err("!!!!!!! unreachable", memberAddr);
       return false;
     } else if (GetSetType(getSetType) == GetSetType::rootState) {
+
+      variants::MemberAddressInt memberAddrInt = {};
+      uapi::serialize::parse_value<variants::MemberAddressInt>(memberAddrInt,
+                                                               iss);
+
+      auto member =
+          uapi::variants::getMemberWithAddressInt(parentNode, memberAddrInt);
+      if (!member) {
+        dbg.print("no member found for addr ", memberAddrInt);
+        return {};
+      }
+
+      auto memberAddr =
+          uapi::variants::intAddressToStr(parentNode, memberAddrInt);
+
       if (isSet) {
         dbg.print("setting rootState ");
         dbg.print("!! rootState was :");
-        uapi::debug::dump(parentNode);
-        // TODO full node address
-        uapi::serialize::from_bin<T>(parentNode, iss);
-        dbg.print("!! rootState is now :");
-        uapi::debug::dump(parentNode);
-        if (handler)
-          handler->onRootStateSet();
+        std::visit(
+            [&memberAddr, &handler, &iss](auto &&m) {
+              using ArgT = std::decay_t<decltype(m)>;
+              using TRUT = typename uapi::traits::unwrap_ref<ArgT>::type;
+              if constexpr (uapi::variants::isUserDefined<TRUT>::value) {
+                uapi::debug::dump<TRUT>(m);
+                // TODO full node address
+                uapi::serialize::from_bin<TRUT>(m, iss);
+                dbg.print("!! rootState is now :");
+                uapi::debug::dump<TRUT>(m);
+                if (handler)
+                  handler->onRootStateSet(memberAddr);
+              } else {
+                dbg.print("no set rooot state for ", memberAddr);
+              }
+            },
+            *member);
         return false;
 
       } else {
@@ -329,11 +377,29 @@ bool processMessage(T &parentNode, char *beg, size_t length,
         std::ostringstream oss;
         uapi::serialize::write_value<pack_ops_t>(
             oss, packOpCode(MessageOpcode::set, GetSetType::rootState));
-        uapi::serialize::write_value<T>(oss, parentNode);
-        respBuf = oss.str();
-        if (handler)
-          handler->onRootStateGet();
-        return true;
+        uapi::serialize::write_value(oss, memberAddrInt);
+        bool isValid = false;
+        std::visit(
+            [&isValid, &oss](auto &&m) {
+              using ArgT = std::decay_t<decltype(m)>;
+              using TRUT = typename uapi::traits::unwrap_ref<ArgT>::type;
+              if constexpr (uapi::variants::isUserDefined<TRUT>::value) {
+                uapi::serialize::write_value<TRUT>(oss, m);
+                isValid = true;
+              }
+            },
+            *member);
+        if (isValid) {
+          respBuf = oss.str();
+          if (handler)
+            handler->onRootStateGet(memberAddr);
+        }
+
+        else {
+          dbg.print("no get rooot state for ", memberAddr);
+        }
+
+        return isValid;
       }
     }
     ///////////
@@ -385,16 +451,17 @@ bool processMessage(T &parentNode, char *beg, size_t length,
         dbg.err("no method found for ", methodName, isSet ? "set" : "get");
         return {};
       }
-      if (isSet) {
+      if (!isSet) {
         dbg.print("function call ", methodName);
         auto args = method->parse_args(iss);
         auto res = method->call(args);
-        buildCallResp(parentNode, methodName, res, respBuf);
+        buildCallResp(memberAddrInt, methodIdx, res, respBuf);
         if (handler)
           handler->onFunctionCall(methodName, args, res);
         return respBuf.size() > 0;
 
       } else {
+        dbg.print("lllll", iss.tellg());
         dbg.print("function resp ", methodName);
         auto resp = method->parse_resp(iss);
         if (handler)

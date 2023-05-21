@@ -29,6 +29,15 @@ MessagesRawType buildMemberGetMessage<<%=name%>>(<%=name%> & api,std::string  me
   return {};
 }
 
+template <>
+MessagesRawType buildGetRootStateMessageStr<<%=name%>>( <%=name%> &api,
+                                            const std::string &memberAddr) {
+  std::string modBuf;
+  bool isValid=uapi::buildGetRootStateMessage<<%=name%>>(api,memberAddr,modBuf);
+  if(!isValid)return {};
+  return strToJs(modBuf);
+}
+
 /*
 void dump_<%=name%>(<%=name%> & api){
 uapi::debug::dump(api);
@@ -45,6 +54,7 @@ emscripten::class_<<%-name%>>("<%-name%>")
   <% for(const f of methods){ -%>
     .function("<%=f.name%>", &<%-name%>::<%-f.name%>)
   <% } //endfor -%>
+  .function("buildGetRootStateMessage",buildGetRootStateMessageStr<<%=name%>>)
   ;
   
   /*  

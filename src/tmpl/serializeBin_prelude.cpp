@@ -144,7 +144,7 @@ template <typename T> struct IsRef<T &> {
 };
 
 template <typename T> void parse_value(T &obj, InStr &is) {
-  static_assert(sizeof(std::decay_t<T>) >= sizeof(char));
+  static_assert(sizeof(std::decay_t<T>) == sizeof(char));
   static_assert(IsRef<T>::result == false);
   if (checkStream(is)) {
     is.read((char *)&obj, sizeof(std::decay_t<T>));

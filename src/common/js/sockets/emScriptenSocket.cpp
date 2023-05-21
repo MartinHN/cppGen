@@ -36,18 +36,28 @@ struct JsMessageHandlerWrapper : public JsObjWrapper,
                    uapi::variants::AnyMemberRefVar &v) override {
     call("onGet", addr);
   };
-  void onRootStateSet() override { call("onRootStateSet"); }
-  void onRootStateGet() override {}
-  void onFunctionCall(const std::string &name,
+  void onRootStateSet(const std::string &addr) override {
+    call("onRootStateSet", addr);
+  }
+  void onRootStateGet(const std::string &addr) override {}
+  void onFunctionCall(const std::string &addr,
                       uapi::variants::AnyMethodArgsTuple &args,
                       uapi::variants::AnyMethodReturnValue &res) override {
     // the only unimplemented function, it's app reponsability to know what to
-    call("onCall", name);
+    call("onCall", addr);
   };
 
-  void onFunctionResp(const std::string &name,
+  void onFunctionResp(const std::string &addr,
                       uapi::variants::AnyMethodReturnValue &res) override {
-    call("onCallResp", name);
+    std::visit(
+        [this, &addr](auto &&r) {
+          using T = decltype(r);
+          if constexpr (uapi::traits::printable<T>)
+            dbg.print(r, cppTypeOf<T>());
+          emscripten::val respV(r);
+          call("onCallResp", addr, respV);
+        },
+        res);
   };
 };
 
@@ -57,9 +67,9 @@ struct JSEmptyMsgHandler {
              const uapi::variants::MemberAddressStr &name){};
   void onGet(const uapi::variants::MemberAddressStr &s,
              const uapi::variants::MemberAddressStr &name){};
-  void onCall(const std::string &s, const std::string &name){};
-  void onCallResp(const std::string &s, const std::string &name){};
-  void onRootStateSet(){};
+  void onCall(const std::string &addr, const std::string &name){};
+  void onCallResp(const std::string &addr, const emscripten::val &resp){};
+  void onRootStateSet(const std::string &addr){};
 };
 
 EMSCRIPTEN_BINDINGS(JsMessageHandler) {

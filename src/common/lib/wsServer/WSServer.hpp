@@ -30,19 +30,19 @@ struct ServerMessageHandler : public uapi::MessageProcessorHandler {
     if (externalHandler)
       externalHandler->onMemberGet(name, v);
   };
-  void onRootStateSet() override {
+  void onRootStateSet(const std::string &addr) override {
     broadcastMsg(msgPtr->get_raw_payload().data(), msgPtr->get_payload().size(),
                  &processed_con);
     if (externalHandler)
-      externalHandler->onRootStateSet();
+      externalHandler->onRootStateSet(addr);
   }
-  void onRootStateGet() override {
+  void onRootStateGet(const std::string &addr) override {
     // TODO remove this
     // broadcastMsg(msgPtr->get_raw_payload().data(),
     // msgPtr->get_payload().size(),
     //              &processed_con);
     if (externalHandler)
-      externalHandler->onRootStateGet();
+      externalHandler->onRootStateGet(addr);
   }
   void onFunctionCall(const std::string &name,
                       uapi::variants::AnyMethodArgsTuple &args,

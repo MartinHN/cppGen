@@ -6,6 +6,10 @@ namespace traits {
 
 //////////////
 /// type helpers
+// inheritance
+template <class C>
+concept InheritFromVec =
+    requires(C c) { []<typename X>(std::vector<X> &) {}(c); };
 
 // Vectors
 template <class T> struct is_vector : std::false_type {};

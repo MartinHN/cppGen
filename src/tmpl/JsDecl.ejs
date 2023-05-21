@@ -18,15 +18,26 @@ export class <%-name%>_Data {
         else if (m.type.includes("<")) init="new "+m.type+"()";
         else if(m.type.includes("number")) init = 0;
         else if (m.type.includes("string"))init = '""';
+        else if (m.type.endsWith("_Interface"))init = 'new '+m.type.replace("_Interface","_Data")+'()';
       }
        -%>
       <%-comment%>public <%-m.name%>: <%-m.type %> =<%- init%>;
   <% } //endfor -%>
 
+   __getServerFunctionNames(){
+    return [
+      <%- methods.filter(m=>!m.opts?.contains("server-only")).map(e=>'"'+e.name+'"').join(",") %>
+    ];
+  }
+    
   <% for(const m of methods){if(m.opts?.contains("server-only"))continue; %>
-      <%-m.name%>(<%-m.getFunctionArgsWithVariables()%>):<%-m.returnType-%>{
-        // call on server
-        console.log("should call js");
+      <%-m.name%>(<%-m.getFunctionArgsWithVariables()%>):Promise<<%-m.returnType-%>>{
+        // empty function that should be intercepted by proxy to be called on server
+        console.error("should not be called on js");
+        return new Promise((res,rej)=>{
+          console.error("should not be called on js");
+          res();
+        })
       }
   <% } // end for methods%> 
 };  // end Data 

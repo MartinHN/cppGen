@@ -150,7 +150,7 @@ namespace variants{
     }
     
 
-    typedef std::vector<MemberIdx> MemberAddressInt;
+    struct MemberAddressInt:public std::vector<MemberIdx> {};
     template<typename T>
     OptMemberRef getMemberWithAddressInt(T& obj,const MemberAddressInt &  addr );
     <% for (const c of classes) {if(!c.isUserDefined) continue; %>
@@ -179,7 +179,7 @@ namespace variants{
     typedef std::vector<std::string> MemberAddressStr;
     typedef std::optional<MemberAddressInt>  OptMemberAddressInt;
     template<typename T>
-    OptMemberAddressInt addressStrToInt(T& obj,const MemberAddressStr &  addr );
+    OptMemberAddressInt addressStrToInt( T& obj,const MemberAddressStr &  addr );
     <% for (const c of classes) {if(!c.isUserDefined) continue; %>
         template<>
         OptMemberAddressInt addressStrToInt< <%- c.name %> >( <%- c.name %> & obj,const MemberAddressStr &  addr ){
@@ -316,6 +316,7 @@ struct VoidArgs{};
 
         virtual  AnyMethodArgsTuple getExpectedArgsTuple() = 0;
         virtual AnyMethodArgsTuple parse_args(std::istream & iss) = 0;
+        virtual AnyMethodReturnValue getExpectedReturnType() = 0;
         virtual AnyMethodReturnValue parse_resp(std::istream &iss)  = 0;
         CallAnyType call;
     };
@@ -333,11 +334,17 @@ struct VoidArgs{};
         AnyMethodReturnValue parse_resp(std::istream &iss) override {
             RT res;
             uapi::serialize::parse_value<RT>(res, iss);
+            if constexpr (uapi::traits::printable<RT>)
+                std::cout << "parse resp method ::"<<res << cppTypeOf<RT>()<< std::endl;
             return res;
         }
 
         AnyMethodArgsTuple getExpectedArgsTuple() override {
             ArgT exp = {};
+            return exp;
+        }
+        AnyMethodReturnValue getExpectedReturnType() override {
+            RT exp = {};
             return exp;
         }
 
@@ -411,6 +418,8 @@ struct VoidArgs{};
 } 
 
 namespace serialize{
+
+
     template<>
     void write_value<variants::VoidReturn>(std::ostream & ,const variants::VoidReturn & ){}
     template<>
@@ -427,7 +436,7 @@ namespace serialize{
         std::visit([&oss](auto && v){
             using ArgT = std::decay_t<decltype(v)>;
             using TRUT = typename uapi::traits::unwrap_ref<ArgT>::type;
-            std::cout << "writing method arg type " << cppTypeOf<TRUT>() << std::endl;
+            // std::cout << "writing method arg type " << cppTypeOf<TRUT>() << std::endl;
             write_value<TRUT>(oss,v);
             },args);
         
@@ -452,6 +461,34 @@ namespace serialize{
             },member);
         
     }
+
+    template<>
+    void write_value<variants::MemberAddressInt>(std::ostream & oss,const variants::MemberAddressInt & addrI){
+        if(addrI.size()==0){
+            write_value<variants::MemberIdx>(oss,255);
+            return;
+        }
+        for(int i = 0 ; i<addrI.size()-1;i++){
+            auto iv = addrI[i] | 0x80;
+            write_value<variants::MemberIdx>(oss,iv);
+        }
+        auto i = addrI[addrI.size()-1];
+        write_value<variants::MemberIdx>(oss,i);
+        return;
+    }
+    template <> void parse_value<variants::MemberAddressInt>(variants::MemberAddressInt &obj, InStr &is) {
+     // TODO
+     variants::MemberIdx r;
+     parse_value<variants::MemberIdx>(r,is);
+     if(r==255)return;
+     obj.push_back(r & 0x7F);
+     while(r >>7){
+        parse_value<variants::MemberIdx>(r,is);
+        obj.push_back(r & 0x7F);
+     }
+
+    }
+
 
 
 /*

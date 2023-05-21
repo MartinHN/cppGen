@@ -10,7 +10,7 @@ void initJsBindRootApi(RootAPI *api) { jsBindCppObj = api; }
 
 EM_JS(char *, getTypeOfRaw, (const emscripten::EM_VAL val_handle), {
   var value = Emval.toValue(val_handle);
-  console.log("getting type", typeof(value), value);
+  // console.log("getting type", typeof(value), value);
   return stringToNewUTF8(typeof(value));
 });
 
@@ -130,17 +130,17 @@ struct JsBindMessageProcessorHandler : public uapi::MessageProcessorHandler {
           *m);
     }
   }
-  void onRootStateSet() override {
+  void onRootStateSet(const std::string &addr) override {
     NestedCounter c(locker);
     applyOnJs(jsO, *jsBindCppObj);
     // TODO
     if (nextH)
-      nextH->onRootStateSet();
+      nextH->onRootStateSet(addr);
   }
-  void onRootStateGet() override {
+  void onRootStateGet(const std::string &addr) override {
     // TODO
     if (nextH)
-      nextH->onRootStateGet();
+      nextH->onRootStateGet(addr);
   }
   void onFunctionCall(const std::string &name, AnyMethodArgsTuple &args,
                       AnyMethodReturnValue &res) override {
@@ -182,8 +182,6 @@ e::val buildJsBindModMessage(const std::string &jsAddr, const e::val &val) {
         using MT = std::decay_t<decltype(m)>;
         using TT = uapi::traits::unwrap_ref<MT>::type;
         auto vv = getValAs<TT>(val);
-        dbg.print("visited", cppTypeOf<TT>);
-        // if constexpr (std::is_arithmetic_v<TT>)
         isValid = uapi::buildModMessage(parentNode, jsAddr, vv, modBuf);
       },
       *member);
@@ -192,7 +190,6 @@ e::val buildJsBindModMessage(const std::string &jsAddr, const e::val &val) {
     return strToJs("");
   }
 
-  dbg.print("valid");
   // // apply to internal value
   // std::string fkBuf;
   // uapi::processMessage(jsBindCppObj, modBuf.data(), modBuf.size(), fkBuf,
@@ -251,14 +248,34 @@ bool parseJsMethodArgs(const e::val &jsArgs,
   return true;
 }
 
-e::val buildJsBindCallMessage(const std::string &nodeAddr,
+e::val buildJsBindCallMessage(const std::string &jsAddr,
                               const std::string &methodName,
                               const e::val &args) {
   std::string modBuf;
   auto &parentNode = *jsBindCppObj;
+  auto aStr = uapi::variants::strAddrFromStr(jsAddr);
+  auto intAddr = uapi::variants::addressStrToInt(parentNode, aStr);
+  if (!intAddr) {
+    dbg.print("no member found for ", jsAddr);
+    return {};
+  }
+  auto member = uapi::variants::getMemberWithAddressInt(parentNode, *intAddr);
+  if (!member) {
+    dbg.print("no member found for ", jsAddr);
+    return {};
+  }
 
-  auto *method =
-      uapi::variants::getMethodWithName(parentNode, methodName.c_str());
+  uapi::variants::Method *method = nullptr;
+
+  std::visit(
+      [&method, &methodName](auto &&m) {
+        using MT = std::decay_t<decltype(m)>;
+        using TT = uapi::traits::unwrap_ref<MT>::type;
+        if constexpr (uapi::variants::isUserDefined<TT>::value)
+          method = uapi::variants::getMethodWithName<TT>(m, methodName.c_str());
+      },
+      *member);
+
   if (!method) {
     dbg.print("not valid");
     return strToJs("");
@@ -270,7 +287,7 @@ e::val buildJsBindCallMessage(const std::string &nodeAddr,
     dbg.print("js args not valid");
     return strToJs("");
   }
-  isValid = uapi::buildCallMessage(parentNode, nodeAddr, methodName, argsToFill,
+  isValid = uapi::buildCallMessage(parentNode, jsAddr, methodName, argsToFill,
                                    modBuf);
 
   if (!isValid) {
@@ -286,10 +303,61 @@ e::val buildJsBindCallMessage(const std::string &nodeAddr,
   return strToJs(modBuf);
 }
 
+bool callMsgNeedsResp(const std::string &jsAddr,
+                      const std::string &methodName) {
+  auto &parentNode = *jsBindCppObj;
+  auto aStr = uapi::variants::strAddrFromStr(jsAddr);
+  auto intAddr = uapi::variants::addressStrToInt(parentNode, aStr);
+  if (!intAddr) {
+    dbg.print("no member found for ", jsAddr);
+    return {};
+  }
+  auto member = uapi::variants::getMemberWithAddressInt(parentNode, *intAddr);
+  if (!member) {
+    dbg.print("no member found for ", jsAddr);
+    return {};
+  }
+
+  uapi::variants::Method *method = nullptr;
+
+  std::visit(
+      [&method, &methodName](auto &&m) {
+        using MT = std::decay_t<decltype(m)>;
+        using TT = uapi::traits::unwrap_ref<MT>::type;
+        if constexpr (uapi::variants::isUserDefined<TT>::value)
+          method = uapi::variants::getMethodWithName<TT>(m, methodName.c_str());
+      },
+      *member);
+
+  if (!method) {
+    dbg.print("not valid");
+    return {};
+  }
+
+  auto returnT = method->getExpectedReturnType();
+  bool needResp = true;
+  std::visit(
+      [&needResp](auto &&m) {
+        using TT = decltype(m);
+        needResp = !std::is_same_v<TT, uapi::variants::VoidReturn>;
+      },
+      returnT);
+  return needResp;
+}
+
+e::val buildGetRootStateMessageJs(const std::string &jsAddr) {
+  std::string modBuf;
+  auto &parentNode = *jsBindCppObj;
+  uapi::buildGetRootStateMessage(parentNode, jsAddr, modBuf);
+  return strToJs(modBuf);
+}
+
 EMSCRIPTEN_BINDINGS(JsBindScope) {
   // e::function("initForJsObj", &initForJsObj);
   e::function("buildJsBindModMessage", &buildJsBindModMessage);
   e::function("buildJsBindCallMessage", &buildJsBindCallMessage);
+  e::function("buildGetRootStateMessage", &buildGetRootStateMessageJs);
+  e::function("callMsgNeedsResp", &callMsgNeedsResp);
 
   // e::function("processMsgForJs", &processMsgForJs);
 };

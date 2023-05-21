@@ -2,7 +2,11 @@
 #include "traits.h"
 #include <iostream>
 
+using uapi::traits::InheritFromVec;
 using uapi::traits::Vec;
+
+template <typename T>
+concept PrintableVec = Vec<T> || InheritFromVec<T>;
 
 struct Dbg {
   Dbg(const char *_prefix) : prefix(_prefix) {}
@@ -60,7 +64,7 @@ private:
     printOne(os, " ");
   }
 
-  template <Vec Arg> void printWithSpace(std::ostream &os, Arg v) {
+  template <PrintableVec Arg> void printWithSpace(std::ostream &os, Arg v) {
     printOne(os, "[");
     for (const auto &e : v) {
       printWithSpace(os, e);
