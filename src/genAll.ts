@@ -9,9 +9,9 @@ import { genProxy } from "./genProxy"
 import { execSync } from "child_process"
 import * as fs from "fs"
 import * as path from "path"
-import { genEmBind } from "./genEmbind"
+
 import { genProto } from "./genProto"
-import { genJsBind } from "./genJsBind"
+
 
 
 
@@ -64,22 +64,19 @@ export function genAll(jsonPath: string, outFolder: string, outJsFolder?: string
     allIncludes = allIncludes.concat(variantsFiles);
     const proxyFiles = genProxy(api, outFolder);
     allIncludes = allIncludes.concat(proxyFiles);
-    const emIncludes = genEmBind(api, outFolder);
-    const jsBindIncludes = genJsBind(api, outFolder);
+
+
 
     let res = "// main header file\n"
     res += `#if !HAS_CUSTOM_API_INCLUDED\n// original API File\n#include "${api.metadata?.originalFile}"\n#endif\n`
     res += "#include \"./common/common.h\"\n"
     allIncludes.map(e => res += `#include "${path.relative(outFolder, e)}"\n`)
     res += "#include \"./common/messageHelps.h\"\n";
-    res += "#if __EMSCRIPTEN__ \n"
-    emIncludes.map(e => res += `#include "${path.relative(outFolder, e)}"\n`)
-    jsBindIncludes.map(e => res += `#include "${path.relative(outFolder, e)}"\n`)
-    res += "#endif\n"
+
 
     fs.writeFileSync(outFolder + "/gen.h", res);
 
-    genProto(api, outFolder);
+    // genProto(api, outFolder);
     const lintRes = execSync(`find ${outFolder} -iname "*.h" -o -iname "*.cpp" -o -iname "*.proto" | xargs clang-format -style="{SortIncludes: Never}" -i`)
 
     let jslintRes = Buffer.from("");

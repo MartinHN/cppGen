@@ -1,3 +1,5 @@
+#include <emscripten/bind.h>
+#include <emscripten/emscripten.h>
 static Dbg dbgObj("[jso]");
 #define dbg dbgObj
 

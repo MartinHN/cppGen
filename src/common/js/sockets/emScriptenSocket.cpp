@@ -218,8 +218,11 @@ void send_msg(char *data, size_t len) {
   }
 }
 
+
+
 void send_msg_str(std::string s) { send_msg(s.data(), s.size()); }
 EMSCRIPTEN_BINDINGS(GlobalWs) {
+  emscripten::function("sendToServer", &send_msg_str);
   emscripten::function("sendToServer", &send_msg_str);
 }
 
