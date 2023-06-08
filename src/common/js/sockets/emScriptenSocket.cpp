@@ -8,13 +8,14 @@ Dbg dbgSock("[ws]");
 EMSCRIPTEN_WEBSOCKET_T last_valid_socket = {};
 bool isSocketOpened = false;
 
-EM_JS(char *, windowHostname, (), {
+EM_JS(emscripten::EM_VAL, windowHostname, (), {
   var loc = new URL(window.location.href);
-  var jsString = loc.hostname;
-  var lengthBytes = lengthBytesUTF8(jsString) + 1;
-  var stringOnWasmHeap = _malloc(lengthBytes);
-  stringToUTF8(jsString, stringOnWasmHeap, lengthBytes);
-  return stringOnWasmHeap;
+  // var jsString = loc.hostname;
+  // var lengthBytes = lengthBytesUTF8(jsString) + 1;
+  // var stringOnWasmHeap = _malloc(lengthBytes);
+  // stringToUTF8(jsString, stringOnWasmHeap, lengthBytes);
+  return Emval.toHandle(loc.hostname);
+  ;
 });
 
 struct JsMessageHandlerWrapper : public JsObjWrapper,
@@ -188,12 +189,11 @@ void init_websocket(API &api, int port, ConnHandler &conHdl,
   };
 
   std::string hostNameStr = "localhost";
-  char *hostName = windowHostname();
-  hostNameStr = hostName;
-  dbg.print(hostName);
-  free(hostName);
+  emscripten::val hostName = emscripten::val::take_ownership(windowHostname());
+  hostNameStr = hostName.as<std::string>();
 
   hostNameStr = "ws://" + hostNameStr + ":" + std::to_string(port);
+  dbg.print("will open ws :: ", hostNameStr);
   EmscriptenWebSocketCreateAttributes ws_attrs = {hostNameStr.data(), NULL,
                                                   EM_TRUE};
   EMSCRIPTEN_WEBSOCKET_T ws = emscripten_websocket_new(&ws_attrs);
@@ -222,7 +222,6 @@ void send_msg(char *data, size_t len) {
 
 void send_msg_str(std::string s) { send_msg(s.data(), s.size()); }
 EMSCRIPTEN_BINDINGS(GlobalWs) {
-  emscripten::function("sendToServer", &send_msg_str);
   emscripten::function("sendToServer", &send_msg_str);
 }
 

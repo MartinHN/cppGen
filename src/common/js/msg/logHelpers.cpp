@@ -16,3 +16,10 @@ EM_JS(emscripten::EM_VAL, binMsgToHex_hdl, (emscripten::EM_VAL val_handle), {
   return Emval.toHandle(res);
 });
 // clang-format on
+
+static void logObj(const emscripten::val &v) { log_em_value(v.as_handle()); }
+
+static std::string binMsgToHex(const emscripten::val &v) {
+  auto rv = emscripten::val::take_ownership(binMsgToHex_hdl(v.as_handle()));
+  return rv.as<std::string>();
+}

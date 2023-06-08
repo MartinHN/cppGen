@@ -11,6 +11,7 @@ import * as fs from "fs"
 import * as path from "path"
 
 import { genProto } from "./genProto"
+import { genWasm } from "./genWasm"
 
 
 
@@ -35,7 +36,7 @@ function safeCpFolder(inF: string, outF: string) {
 }
 
 
-export function genAll(jsonPath: string, outFolder: string, outJsFolder?: string) {
+export async function genAll(jsonPath: string, outFolder: string, outJsFolder?: string, wasmOpts?: any) {
     safeClean(outFolder)
     const localGenPath = __dirname + "/common"
     safeCpFolder(localGenPath, outFolder)
@@ -88,6 +89,9 @@ export function genAll(jsonPath: string, outFolder: string, outJsFolder?: string
         const lintCmd = `find ${outJsFolder} -iname "*.js" -o -iname "*.ts" ! -iname '*prelude.ts' | xargs clang-format -style="{SortIncludes: Never}" -i`
         // console.log(lintCmd);
         jslintRes = execSync(lintCmd)
+
+        if (wasmOpts)
+            await genWasm(api, outFolder, wasmOpts.baseClass, outJsFolder, wasmOpts.debugMode)
     }
     console.log("SUCCCCCESSSS", lintRes.toString(), jslintRes.toString())
 
