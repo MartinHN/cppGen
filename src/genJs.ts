@@ -37,7 +37,7 @@ function getJsTypeForCType(typeSyst: TypeSystem, t: string, accessed: { [key: st
     if (t == "bool")
         return "boolean"
     const rawT = t.replace("unsigned", "").trim();
-    if (rawT.startsWith("int") || rawT.startsWith("float") || rawT.startsWith("short"))
+    if (rawT.startsWith("int") || rawT.startsWith("float") || rawT.startsWith("short") || rawT.startsWith("double"))
         return "number"
     if (rawT.startsWith("long"))
         return "BigInt"
