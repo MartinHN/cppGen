@@ -1,0 +1,7 @@
+{
+    "genJSON": {
+        "baseFile": "./MessageAPI.h"
+    },
+    "outFolder": "./gen/",
+    "outJsFolder": "./gen_js/"
+}

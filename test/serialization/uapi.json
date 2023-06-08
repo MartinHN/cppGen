@@ -1,0 +1,7 @@
+{
+    "genJSON": {
+        "baseFile": "./SerializeAPI.h"
+    },
+    "outFolder": "./gen/",
+    "outJsFolder": "./gen_js/"
+}
