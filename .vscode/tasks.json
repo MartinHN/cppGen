@@ -77,29 +77,29 @@
         //     },
         //     "dependsOn": "parseXML"
         // },
-        // {
-        //     "label": "buildTest",
-        //     "type": "shell",
-        //     "options": {
-        //         "cwd": "${workspaceFolder}/build"
-        //     },
-        //     "command": "cmake .. -DCMAKE_BUILD_TYPE=Release && make test -j4", //-DCMAKE_BUILD_TYPE=Release
-        //     "problemMatcher": [
-        //         "$gcc"
-        //     ],
-        //     "group": {
-        //         "kind": "build",
-        //         "isDefault": true
-        //     },
-        //     "dependsOn": "genCPP",
-        //     "presentation": {
-        //         "echo": true,
-        //         "reveal": "always",
-        //         "focus": false,
-        //         "panel": "shared",
-        //         "showReuseMessage": true,
-        //         "clear": true
-        //     }
-        // }
+        {
+            "label": "buildTest",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}/test/messages"
+            },
+            "command": "./build.sh",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            // "dependsOn": "genCPP",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": true
+            }
+        }
     ]
 }

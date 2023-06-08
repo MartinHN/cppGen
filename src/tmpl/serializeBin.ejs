@@ -1,3 +1,5 @@
+#include <string>
+#include <sstream>
 namespace uapi{
 namespace serialize{
     
@@ -13,18 +15,27 @@ void write_value< <%-name%> > (OutStr & os,const <%-name%> & obj){
     }
 }
 
-void to_bin_<%-name%> (const <%-name%> & obj,OutStr & os){
+
+template<typename T>
+void to_bin (const T & obj,OutStr & os);
+
+template<typename T>
+std::string  to_bin_str (const T & obj);
+    
+    
+template<>
+void to_bin<<%-name%>> (const <%-name%> & obj,OutStr & os){
     if(checkStream(os))
         write_value(os,obj);
 }
 
 
-//template<typename T>
-    void to_bin_str_<%-name%> (const <%-name%> & obj,std::string & outBuf){
-        std::ostringstream oss;
-        uapi::serialize::to_bin_<%-name%>(obj,oss);
-        outBuf = oss.str();
-    }
+template<>
+std::string  to_bin_str<<%-name%>> (const <%-name%> & obj){
+    std::ostringstream oss;
+    uapi::serialize::to_bin<<%-name%>>(obj,oss);
+    return oss.str();
+}
 
 
 

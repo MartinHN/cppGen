@@ -8,7 +8,7 @@ export function genVariants(ts: TypeSystem, outFolder: string): string[] {
     const outFile = outFolder + "/variants.h"
     const allCls = ts.getAllClasses();
 
-    const ctx = { builtins: ["uint32_t", "unsigned char"], classes: allCls.map(i => { return { name: i, members: ts.getMembersForClass(i), methods: ts.getMethodsForClass(i), isUserDefined: ts.isClassUserDefined(i) } }) }
+    const ctx = { builtins: ["unsigned int", "unsigned char", "int"], classes: allCls.map(i => { return { name: i, members: ts.getMembersForClass(i), methods: ts.getMethodsForClass(i), isUserDefined: ts.isClassUserDefined(i) } }) }
 
     const o = tmpl.parseTemplate("Variants.ejs", ctx)
     fs.writeFileSync(outFile, o);

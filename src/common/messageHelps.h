@@ -1,8 +1,9 @@
 #include "core/Dbg.h"
-static Dbg dbgMsg("[msg]");
+static Dbg dbgMsg("[msg]", true);
 #define dbg dbgMsg
 
-#include <iostream>
+#include <sstream>
+#include <string>
 
 namespace uapi {
 
@@ -54,7 +55,6 @@ static_assert(tstPack(MessageOpcode::get, GetSetType::member));
 template <typename T, typename NodeT>
 bool buildModMessage(NodeT &parentNode, const std::string &memberAddr, T i,
                      std::string &modBuf) {
-
   auto strAddr = uapi::variants::strAddrFromStr(memberAddr);
   auto ointAddr = uapi::variants::addressStrToInt(parentNode, strAddr);
   if (!ointAddr) {
@@ -237,6 +237,7 @@ bool buildSetRootStateMessage(NodeT &parentNode, std::string &childAddr,
 }
 
 struct MessageProcessorHandler {
+  virtual ~MessageProcessorHandler() = default;
   virtual void onMemberSet(const std::string &name,
                            uapi::variants::AnyMemberRefVar &v){};
   virtual void onMemberGet(const std::string &name,
@@ -261,7 +262,7 @@ bool processMessage(T &parentNode, char *beg, size_t length,
   auto [op, getSetType] = unPackOpCode(op_pack);
 
   dbg.print("msgType : ", getSetType_str(getSetType), getSet_str(op),
-            "l:", length);
+            "len:", length);
   if (MessageOpcode(op) == MessageOpcode::set ||
       (MessageOpcode(op) == MessageOpcode::get)) {
     bool isSet = MessageOpcode(op) == MessageOpcode::set;
@@ -288,8 +289,7 @@ bool processMessage(T &parentNode, char *beg, size_t length,
       }
 
       if (isSet) {
-
-        dbg.print(dbg.int_to_hex((int64_t)(void *)&parentNode));
+        // dbg.print(dbg.int_to_hex((int64_t)(void *)&parentNode));
         std::visit(
             [&memberAddr](auto &&a) {
               using ArgT = std::decay_t<decltype(a)>;
@@ -323,7 +323,10 @@ bool processMessage(T &parentNode, char *beg, size_t length,
       } else {
         std::visit(
             [&respBuf, &parentNode, &memberAddr](auto &&arg) {
-              buildModMessage(parentNode, memberAddr, arg.get(), respBuf);
+              using ArgT = std::decay_t<decltype(arg)>;
+              using TRUT = typename uapi::traits::unwrap_ref<ArgT>::type;
+              if constexpr (!uapi::variants::isUserDefined<TRUT>::value)
+                buildModMessage(parentNode, memberAddr, arg.get(), respBuf);
             },
             *member);
         if (handler)
@@ -335,7 +338,6 @@ bool processMessage(T &parentNode, char *beg, size_t length,
       dbg.err("!!!!!!! unreachable", memberAddr);
       return false;
     } else if (GetSetType(getSetType) == GetSetType::rootState) {
-
       variants::MemberAddressInt memberAddrInt = {};
       uapi::serialize::parse_value<variants::MemberAddressInt>(memberAddrInt,
                                                                iss);
@@ -358,11 +360,13 @@ bool processMessage(T &parentNode, char *beg, size_t length,
               using ArgT = std::decay_t<decltype(m)>;
               using TRUT = typename uapi::traits::unwrap_ref<ArgT>::type;
               if constexpr (uapi::variants::isUserDefined<TRUT>::value) {
-                uapi::debug::dump<TRUT>(m);
+                if (!dbg.disabled)
+                  uapi::debug::dump<TRUT>(m);
                 // TODO full node address
                 uapi::serialize::from_bin<TRUT>(m, iss);
                 dbg.print("!! rootState is now :");
-                uapi::debug::dump<TRUT>(m);
+                if (!dbg.disabled)
+                  uapi::debug::dump<TRUT>(m);
                 if (handler)
                   handler->onRootStateSet(memberAddr);
               } else {

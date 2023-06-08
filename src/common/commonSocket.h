@@ -8,6 +8,7 @@ struct ConnHandler {
 };
 
 struct SocketImplBase {
+  virtual ~SocketImplBase() = default;
   virtual void connect(int port) = 0;
   virtual void send_msg(const char *s, size_t size) = 0;
 };

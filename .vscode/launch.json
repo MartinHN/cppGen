@@ -13,15 +13,15 @@
         //     "cwd": "${workspaceFolder}",
         //     "preLaunchTask": "buildProto"
         // },
-        // {
-        //     "type": "lldb",
-        //     "request": "launch",
-        //     "name": "Run tests",
-        //     "program": "${workspaceFolder}/build/test",
-        //     "args": [],
-        //     "cwd": "${workspaceFolder}",
-        //     "preLaunchTask": "buildTest"
-        // },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Run tests",
+            "program": "${workspaceFolder}/test/messages/build/message_tst",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "buildTest"
+        },
         // {
         //     "type": "node",
         //     "request": "launch",

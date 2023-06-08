@@ -1,6 +1,7 @@
 #pragma once
+#include <iostream>
 #include <type_traits>
-
+#include <vector>
 namespace uapi {
 namespace traits {
 
@@ -8,8 +9,11 @@ namespace traits {
 /// type helpers
 // inheritance
 template <class C>
-concept InheritFromVec =
-    requires(C c) { []<typename X>(std::vector<X> &) {}(c); };
+concept CanBeIterated = requires(C c) {
+                          c.begin();
+                          c.end();
+                        } && !
+std::is_same_v<std::decay_t<C>, std::string>;
 
 // Vectors
 template <class T> struct is_vector : std::false_type {};
@@ -55,7 +59,8 @@ template <typename T> struct unwrap_ref<std::reference_wrapper<T>> {
 // behaviours
 template <typename T>
 concept printable = requires(T t) {
-                      { std::cout << t } -> std::same_as<std::ostream &>;
+                      // { std::cout << t } -> std::same_as<std::ostream &>;
+                      std::cout << t;
                     };
 
 } // namespace traits

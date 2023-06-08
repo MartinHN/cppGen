@@ -13,7 +13,7 @@ template <typename T> void dumpValue(const T &obj, int) { std::cout << obj; }
 
 template <Vec T> void dumpValue(const T &obj, int indent) {
   std::cout << "[ ";
-  int i = 0;
+  size_t i = 0;
   for (const auto &o : obj) {
     dumpValue(o, indent);
     if (i != obj.size() - 1)

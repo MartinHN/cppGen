@@ -1,5 +1,6 @@
 {
     "files.associations": {
+        "*.ejs": "html",
         "typeinfo": "cpp",
         "iosfwd": "cpp",
         "vector": "cpp",
@@ -62,7 +63,18 @@
         "type_traits": "cpp",
         "unordered_map": "cpp",
         "algorithm": "cpp",
-        "utility": "cpp"
+        "utility": "cpp",
+        "bit": "cpp",
+        "condition_variable": "cpp",
+        "deque": "cpp",
+        "fstream": "cpp",
+        "iomanip": "cpp",
+        "numeric": "cpp",
+        "queue": "cpp",
+        "random": "cpp",
+        "regex": "cpp",
+        "set": "cpp",
+        "stack": "cpp"
     },
     "C_Cpp.clang_format_sortIncludes": false
 }

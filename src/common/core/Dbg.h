@@ -2,14 +2,16 @@
 #include "traits.h"
 #include <iostream>
 
-using uapi::traits::InheritFromVec;
+using uapi::traits::CanBeIterated;
 using uapi::traits::Vec;
 
 template <typename T>
-concept PrintableVec = Vec<T> || InheritFromVec<T>;
+concept PrintableVec = Vec<T> || CanBeIterated<T>;
 
 struct Dbg {
-  Dbg(const char *_prefix) : prefix(_prefix) {}
+  Dbg(const char *_prefix, bool disab = false)
+      : prefix(_prefix), disabled(disab) {}
+
   template <typename... Args> void err(Args... a) {
     beginOs(std::cerr, a...);
     endOs(std::cerr);
@@ -74,6 +76,8 @@ private:
   }
 
   template <typename Arg> inline void printOne(std::ostream &os, Arg a) {
+    if (disabled)
+      return;
     if (getRunningLineOs() == nullptr) {
       beginOs(os);
     }
@@ -86,6 +90,9 @@ private:
     static std::ostream *r = nullptr;
     return r;
   }
+
+public:
+  bool disabled = false;
 };
 
 #define CONST_ASSERT(x)                                                        \

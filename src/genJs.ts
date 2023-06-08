@@ -34,6 +34,8 @@ function getJsTypeForCType(typeSyst: TypeSystem, t: string, accessed: { [key: st
     if (t.toLowerCase().startsWith("void"))
         return "void"
 
+    if (t == "bool")
+        return "boolean"
     const rawT = t.replace("unsigned", "").trim();
     if (rawT.startsWith("int") || rawT.startsWith("float") || rawT.startsWith("short"))
         return "number"
@@ -62,7 +64,7 @@ function appendJsTypes(typeSyst: TypeSystem, cl: APIClass) {
     const jsClass = new APIClass(cl.name, cl);
     jsClass.members = new Array<MemberType>();
     for (let o of cl.members) {
-        jsClass.members.push(new MemberType(getJsTypeForCType(typeSyst, o.type, userClassesAccessed), o.name,));
+        jsClass.members.push(new MemberType(getJsTypeForCType(typeSyst, o.type, userClassesAccessed), o.name, o.init));
     }
 
     jsClass.methods = new Array<MethodType>();

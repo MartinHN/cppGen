@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 
 export class MemberType {
-    constructor(public type: string, public name: string) { }
+    constructor(public type: string, public name: string, public init?: any) { }
 }
 
 type MembersCollection = MemberType[];

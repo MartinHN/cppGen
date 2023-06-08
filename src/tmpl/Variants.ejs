@@ -1,4 +1,5 @@
-
+#include <functional>
+#include <string>
 #define UAPI_HAS_VARIANTS 1
 // #include "traits.h" 
 
@@ -27,7 +28,7 @@ namespace variants{
 
 
     // big AnyVar
-   typedef  std::variant < <%- classes.map(e=>classesRef[e.name]).join(',') %> > AnyMemberRefVar;
+   typedef  std::variant < <%- Object.values(classesRef).join(',') %> > AnyMemberRefVar;
    typedef std::optional<AnyMemberRefVar>OptMemberRef;
 
    typedef std::vector<AnyMemberRefVar> AnyMemberRefVec;
@@ -275,7 +276,7 @@ struct VoidReturn{};
 struct VoidArgs{};
  <%     
     var argListClasses = {"VoidArgs":[]};
-    var methodReturnTypes = {};
+    var methodReturnTypes = {"VoidArgs":[]};
     var methodRefs = {};
     for (const c of classes) {
         for( const m of c.methods){
@@ -311,7 +312,7 @@ struct VoidArgs{};
     struct Method{
         std::string name;
         typedef std::function<AnyMethodReturnValue (const AnyMethodArgsTuple &) >  CallAnyType;
-        Method(const std::string & n,CallAnyType && fun):name(n),call(fun){};
+        Method(const std::string & n):name(n){};
         virtual ~Method() = default;
 
         virtual  AnyMethodArgsTuple getExpectedArgsTuple() = 0;
@@ -325,7 +326,7 @@ struct VoidArgs{};
 
     template<typename RT,typename ArgT>
     struct MethodImpl : public Method{
-        MethodImpl(const std::string & n,CallAnyType && fun):Method(n,std::move(fun)){}
+        MethodImpl(const std::string & n):Method(n){}
         AnyMethodArgsTuple parse_args(std::istream & iss) override{
             ArgT res;
             uapi::serialize::parse_value<ArgT>(res,iss);
@@ -334,8 +335,8 @@ struct VoidArgs{};
         AnyMethodReturnValue parse_resp(std::istream &iss) override {
             RT res;
             uapi::serialize::parse_value<RT>(res, iss);
-            if constexpr (uapi::traits::printable<RT>)
-                std::cout << "parse resp method ::"<<res << cppTypeOf<RT>()<< std::endl;
+            // if constexpr (uapi::traits::printable<RT>)
+            //     std::cout << "parse resp method ::"<<res << cppTypeOf<RT>()<< std::endl;
             return res;
         }
 
@@ -381,7 +382,8 @@ struct VoidArgs{};
         Method* getMethodWithName< <%- c.name %> >( <%- c.name %> & obj,const char * name){
             <% for(const m of c.methods) { %>
                 if(strcmp(name,"<%=m.name%>")==0){
-                 static MethodImpl<<%-m.returnType%>,<%-m.argListClassName%>> <%=m.name%>_Function("<%=m.name%>",[&obj](const AnyMethodArgsTuple & args)->AnyMethodReturnValue{
+                static MethodImpl<<%-m.returnType%>,<%-m.argListClassName%>> <%=m.name%>_Function("<%=m.name%>");
+            <%=m.name%>_Function.call = [&obj](const AnyMethodArgsTuple & args)->AnyMethodReturnValue{
                 <% if(m.argListClassName!="VoidArgs"){ -%>
                                 if(auto * resolved = std::get_if<<%-m.argListClassName%>>(&args))
                 <% } -%>
@@ -393,9 +395,9 @@ struct VoidArgs{};
                     <% } -%>
                         std::apply(&<%-c.name%>::<%-m.name%>, 
                             <% if(m.argListClassName!="VoidArgs"){ -%>
-                                std::tuple_cat(std::make_tuple(obj),  *resolved)
+                                std::tuple_cat(std::tie(obj),  *resolved)
                             <% }else{ -%>
-                                std::make_tuple(obj)
+                                std::tie(obj)
                             <% } -%>
                             );
                     return res;
@@ -405,7 +407,7 @@ struct VoidArgs{};
                 std::cout << "wrong arg type" << std::endl;
                 return {};
                 
-            });
+            };
             return &<%=m.name%>_Function;}
 
             <% } %>
@@ -442,6 +444,7 @@ namespace serialize{
         
     }
 
+    <% if(Object.keys(argListClasses).length!=1 && Object.keys(methodReturnTypes).length!=1){ %>
     template<>
     void write_value<variants::AnyMethodReturnValue>(std::ostream & oss,const variants::AnyMethodReturnValue & args){
             std::visit([&oss](auto && v){
@@ -451,7 +454,7 @@ namespace serialize{
             },args);
         
     }
-
+    <% } %>
     template<>
     void write_value<variants::AnyMemberRefVar>(std::ostream & oss,const variants::AnyMemberRefVar & member){
             std::visit([&oss](auto && v){
@@ -468,7 +471,7 @@ namespace serialize{
             write_value<variants::MemberIdx>(oss,255);
             return;
         }
-        for(int i = 0 ; i<addrI.size()-1;i++){
+        for(size_t i = 0 ; i<addrI.size()-1;i++){
             auto iv = addrI[i] | 0x80;
             write_value<variants::MemberIdx>(oss,iv);
         }
