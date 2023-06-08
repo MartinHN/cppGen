@@ -6,7 +6,7 @@ import { genIdentifiers } from "./genIdentifiers"
 import { genVariants } from "./genVariants"
 import { genJs } from "./genJs"
 import { genProxy } from "./genProxy"
-import { execSync } from "child_process"
+import { execSync, spawn, spawnSync } from "child_process"
 import * as fs from "fs"
 import * as path from "path"
 
@@ -36,7 +36,9 @@ function safeCpFolder(inF: string, outF: string) {
 }
 
 
-export async function genAll(jsonPath: string, outFolder: string, outJsFolder?: string, wasmOpts?: any) {
+export async function genAll(jsonPath: string, trueOutFolder: string, trueOutJsFolder?: string, wasmOpts?: any) {
+    const outFolder = "/tmp/genCpp/"
+
     safeClean(outFolder)
     const localGenPath = __dirname + "/common"
     safeCpFolder(localGenPath, outFolder)
@@ -81,7 +83,9 @@ export async function genAll(jsonPath: string, outFolder: string, outJsFolder?: 
     const lintRes = execSync(`find ${outFolder} -iname "*.h" -o -iname "*.cpp" -o -iname "*.proto" | xargs clang-format -style="{SortIncludes: Never}" -i`)
 
     let jslintRes = Buffer.from("");
-    if (!!outJsFolder) {
+    if (!!trueOutJsFolder) {
+
+        const outJsFolder = "/tmp/genJs/"
         safeClean(outJsFolder)
         genJs(api, outJsFolder)
 
@@ -92,8 +96,22 @@ export async function genAll(jsonPath: string, outFolder: string, outJsFolder?: 
 
         if (wasmOpts)
             await genWasm(api, outFolder, wasmOpts.baseClass, outJsFolder, wasmOpts.debugMode)
+
+        rsync(outJsFolder, trueOutJsFolder)
+
     }
     console.log("SUCCCCCESSSS", lintRes.toString(), jslintRes.toString())
 
+    rsync(outFolder, trueOutFolder)
     return api;
+}
+
+
+function rsync(from: string, to: string) {
+    if (!from.endsWith("/"))
+        from = from + "/"
+    if (!to.endsWith("/"))
+        to = to + "/"
+
+    spawn(`rsync -r --checksum ${from} ${to}; echo "done copying ${to}"`, { shell: true, stdio: 'inherit' });
 }
