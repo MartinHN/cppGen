@@ -39,6 +39,23 @@ DEFINE_TEST(SimpleDump) {
   uapi::debug::dump(api);
 }
 
+DEFINE_TEST(sizeChecks) {
+  // std::cout << sizeof(uapi::variants::AnyMemberRefVar) << std::endl;
+  // std::cout << sizeof((void *)(nullptr)) << std::endl;
+  // should d be sizeof((void *)(nullptr)) but well... cpp is adding some
+  // overhed
+  TEST(sizeof(uapi::variants::AnyMemberRefVar) <= 16);
+  // std::cout << sizeof(uapi::variants::OptMemberRef) << std::endl;
+  // std::cout << sizeof(uapi::variants::AnyMemberRefVar) << std::endl;
+  // stilll some overhead...
+  TEST(sizeof(uapi::variants::OptMemberRef) <= 24);
+
+  TEST(uapi::variants::isUserDefined<IMember>::value);
+  TEST(uapi::variants::isUserDefined<RootAPI>::value);
+  TEST(!uapi::variants::isUserDefined<int>::value);
+  TEST(!uapi::variants::isUserDefined<std::string>::value);
+}
+
 int main() {
   bool pass = true;
 

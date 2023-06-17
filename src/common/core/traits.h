@@ -39,7 +39,8 @@ template <typename T>
 concept TupleLike = requires(T a) {
                       std::tuple_size<T>::value;
                       std::get<0>(a);
-                    };
+                    } && !
+Vec<T>;
 
 // String
 template <typename T>

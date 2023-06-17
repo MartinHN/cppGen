@@ -1,7 +1,7 @@
+#include "gen.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
-#include "gen.h"
 #ifndef ROOT_JS_CLASS
 #error " ROOT_JS_CLASS should be defined"
 #endif
@@ -22,16 +22,17 @@ static Dbg dbgApp("[app]");
 void dumpAll() {
     uapi::debug::dump(rootApi);
 }
+// void abortMe() { abort(); }
 void dumpPtr(ROOT_JS_CLASS &a) {
     uapi::debug::dump(a);
 }
 
-// RootAPI *getRootApi() {
-//     return &rootApi;
-// }
+ROOT_JS_CLASS *getRootApi() {
+    return &rootApi;
+}
 EMSCRIPTEN_BINDINGS(mainApp) {
-    // emscripten::function("getRootApi", &getRootApi,
-    //                      emscripten::allow_raw_pointers());
+    emscripten::function("getRootApi", &getRootApi,
+                         emscripten::allow_raw_pointers());
     // emscripten::function("initWebSocket", &initWebSocket);
     // emscripten::function("buildMemberGetMessage",
     // &buildMemberGetMessageMain);
@@ -39,10 +40,12 @@ EMSCRIPTEN_BINDINGS(mainApp) {
     // &buildMemberModMessageMain);
     emscripten::function("dump", &dumpAll);
     emscripten::function("dumpPtr", &dumpPtr);
+    // emscripten::function("abort", &abortMe);
     // emscripten::function("test", &test, emscripten::allow_raw_pointers());
 }
 
 int main() {
+    initJsBindRootApi(&rootApi);
 #if TYPESCRIPT_DEF
     return 0;
 #endif

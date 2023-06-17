@@ -41,12 +41,16 @@ function getJsTypeForCType(typeSyst: TypeSystem, t: string, accessed: { [key: st
         return "number"
     if (rawT.startsWith("long"))
         return "BigInt"
-    if (rawT.startsWith("std::string"))
+    if (rawT.startsWith("std::string") || rawT.startsWith("char"))
         return "string"
 
     if (rawT.startsWith("std::vector")) {
         const innerT = getInnerTemplate(rawT);
-        return "ModifiableArray<" + getJsTypeForCType(typeSyst, innerT, accessed) + ">";
+        if (typeSyst.isClassUserDefined(innerT))
+            return "ModifiableArray<" + getJsTypeForCType(typeSyst, innerT, accessed) + ">";
+        else
+            return "Array<" + getJsTypeForCType(typeSyst, innerT, accessed) + ">";
+
     }
     if (rawT.startsWith("std::array")) {
         const innerT = getInnerTemplate(rawT).split(",");

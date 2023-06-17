@@ -13,12 +13,16 @@ export class <%-name%>_Data {
     } 
       let comment = m.type.includes("unsupported")?"//":"";
       let init =m.init
-      if(init==undefined){
+
+      if(init==undefined || init ==="{}"){
         if (m.type.includes("ModifiableArray")) init="new "+m.type+"("+getInnerTemplate(m.type)+")";
         else if (m.type.includes("<")) init="new "+m.type+"()";
-        else if(m.type.includes("number")) init = 0;
+        else if(m.type.includes("number") ||m.type.includes("BigInt")) init = 0;
         else if (m.type.includes("string"))init = '""';
         else if (m.type.endsWith("_Interface"))init = 'new '+m.type.replace("_Interface","_Data")+'()';
+      }
+      if(m.type=="BigInt"){
+        init = `BigInt(${init})`
       }
        -%>
       <%-comment%>public <%-m.name%>: <%-m.type %> =<%- init%>;

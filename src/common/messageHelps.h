@@ -482,6 +482,17 @@ bool processMessage(T &parentNode, char *beg, size_t length,
   return false;
 }
 
+template <typename T> struct TransportImpl : public TransportBase {
+  TransportImpl(T *_api) : api(_api) {}
+
+  virtual ~TransportImpl() override = default;
+  bool processMsg(char *c, size_t size, std::string &respBuf) override {
+    return uapi::processMessage<T>(*api, c, size, respBuf, transportMsgHdlr);
+  }
+
+  T *api;
+};
+
 } // namespace uapi
 
 #undef dbg

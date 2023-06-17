@@ -1,0 +1,12 @@
+{
+    "genJSON": {
+        "baseFile": "./WasmAPI.h"
+    },
+    "outFolder": "./gen/",
+    "outJsFolder": "./gen_js/",
+    "wasmOpts": {
+        "baseClass": "RootAPI",
+        "buildForNode": true,
+        "debugMode": true
+    }
+}

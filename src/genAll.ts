@@ -1,4 +1,4 @@
-import * as prim from "./genPrimitive"
+// import * as prim from "./genPrimitive"
 import * as apiLoader from "./APILoader"
 import { genDump } from "./genDump"
 import { genSerialize } from "./genSerialize"
@@ -10,7 +10,7 @@ import { execSync, spawn, spawnSync } from "child_process"
 import * as fs from "fs"
 import * as path from "path"
 
-import { genProto } from "./genProto"
+// import { genProto } from "./genProto"
 import { genWasm } from "./genWasm"
 
 
@@ -83,6 +83,7 @@ export async function genAll(jsonPath: string, trueOutFolder: string, trueOutJsF
     const lintRes = execSync(`find ${outFolder} -iname "*.h" -o -iname "*.cpp" -o -iname "*.proto" | xargs clang-format -style="{SortIncludes: Never}" -i`)
 
     let jslintRes = Buffer.from("");
+    rsync(outFolder, trueOutFolder)
     if (!!trueOutJsFolder) {
 
         const outJsFolder = "/tmp/genJs/"
@@ -94,15 +95,14 @@ export async function genAll(jsonPath: string, trueOutFolder: string, trueOutJsF
         // console.log(lintCmd);
         jslintRes = execSync(lintCmd)
 
-        if (wasmOpts)
-            await genWasm(api, outFolder, wasmOpts.baseClass, outJsFolder, wasmOpts.debugMode)
-
         rsync(outJsFolder, trueOutJsFolder)
+        if (wasmOpts)
+            await genWasm(api, trueOutFolder, wasmOpts.baseClass, trueOutJsFolder, wasmOpts.debugMode, wasmOpts.buildForNode)
+
 
     }
     console.log("SUCCCCCESSSS", lintRes.toString(), jslintRes.toString())
 
-    rsync(outFolder, trueOutFolder)
     return api;
 }
 

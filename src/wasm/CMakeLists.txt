@@ -61,9 +61,9 @@ else()
     message("debug mode")
     target_compile_options(wasmJs PUBLIC -O0 --closure=0)
 
+    # MAYBEEEEE >>>>>>>># target_link_options(wasmJs PUBLIC -fdebug-compilation-dir=../..)
     # prevent dwarf debugging...
     # target_link_options(wasmJs PUBLIC -gsource-map) # --sourcemap-base="loloooooo"
-    target_link_options(wasmJs PUBLIC -fdebug-compilation-dir=../..)
 
     # add_custom_command(TARGET wasmJs POST_BUILD COMMAND "node" ARGS "${CMAKE_CURRENT_SOURCE_DIR}/scripts/toAbsMap.js")
     # target_link_options(wasmJs PUBLIC -gseparate-dwarf=${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/wasmJs.wasm.dwp)
@@ -81,7 +81,12 @@ endif()
 # module are not supported by tsembind
 target_link_options(wasmJs PUBLIC -sEXPORT_ES6=1)
 
-target_link_options(wasmJs PUBLIC -sENVIRONMENT=web)
+if(BUILD_FOR_NODE)
+    target_link_options(wasmJs PUBLIC -sENVIRONMENT=node)
+else()
+    target_link_options(wasmJs PUBLIC -sENVIRONMENT=web)
+endif()
+
 add_custom_command(TARGET wasmJs PRE_BUILD COMMAND "rm" ARGS "-r" ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 add_custom_command(TARGET wasmJs PRE_BUILD COMMAND "mkdir" ARGS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
@@ -94,7 +99,11 @@ if(BUILD_TYPESCRIPT)
     add_executable(wasmTs main.cpp)
     target_compile_options(wasmTs PUBLIC -O0 -DTYPESCRIPT_DEF=1)
     target_link_options(wasmTs PUBLIC -sHEADLESS=1)
+
+    # hack to prevent being considered as module if inside another node directory
+    add_custom_command(TARGET wasmTs POST_BUILD COMMAND "cp" ARGS "${CMAKE_CURRENT_SOURCE_DIR}/package.json" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/")
     add_custom_command(TARGET wasmTs POST_BUILD COMMAND "tsembind" ARGS "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/wasmTs.js" ">" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/wasmJsTypes.d.ts") # tsembind wasm.js > types.d.ts
+    add_custom_command(TARGET wasmTs POST_BUILD COMMAND "rm" ARGS "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/package.json")
     add_custom_command(TARGET wasmTs POST_BUILD COMMAND "rm" ARGS "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/wasmTs.js")
     add_custom_command(TARGET wasmTs POST_BUILD COMMAND "rm" ARGS "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/wasmTs.wasm")
 endif()
