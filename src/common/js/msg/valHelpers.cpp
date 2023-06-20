@@ -30,12 +30,12 @@ e::val anyMemberToVal(AnyMemberRefVar member) {
   return res;
 };
 
-AnyMemberRefVar valToAnyMember(e::val v) {
-  // auto t = v.typeof();
-  // TODO
-  int a = 0;
-  return AnyMemberRefVar(a);
-};
+// AnyMemberRefVar valToAnyMember(e::val v) {
+//     // auto t = v.typeof();
+//     // TODO
+//     int a = 0;
+//     return AnyMemberRefVar(a);
+// };
 
 template <typename T> T getValAs(const e::val &v) { return v.as<T>(); }
 
@@ -46,25 +46,28 @@ template <uapi::traits::Vec T> T getValAs(const e::val &v) {
 }
 
 struct NestedLocker {
-
   NestedLocker(e::val e) : jsO(e) {}
   void lock() { jsO.set("__fromServer", true); };
   void unlock() { jsO.set("__fromServer", false); };
+  void inc() {
+    count++;
+    if (count == 1)
+      lock();
+  }
+  void dec() {
+    count--;
+    if (count <= 0) {
+      unlock();
+      count = 0;
+    }
+  }
   e::val jsO;
   uint32_t count = 0;
 };
 
 struct NestedCounter {
-  NestedCounter(NestedLocker &c) : locker(c) {
-    if (locker.count <= 0)
-      locker.lock();
-    locker.count++;
-  }
-  ~NestedCounter() {
-    locker.count--;
-    if (locker.count <= 0)
-      locker.unlock();
-  }
+  NestedCounter(NestedLocker &c) : locker(c) { locker.inc(); }
+  ~NestedCounter() { locker.dec(); }
   NestedLocker &locker;
 };
 

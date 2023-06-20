@@ -1,4 +1,5 @@
 set -e
+set -x
 
 ts-node ../../../run.ts uapi.json
 

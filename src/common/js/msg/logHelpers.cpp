@@ -1,7 +1,8 @@
 // clang-format off
-EM_JS(void, log_em_value, (emscripten::EM_VAL val_handle), {
+EM_JS(void, log_em_value, (emscripten::EM_VAL val_handle, emscripten::EM_VAL prefixStr), {
   var value = Emval.toValue(val_handle);
-  console.log("logObj", value);
+  var prefix = Emval.toValue(prefixStr);
+  console.log("logJsObj",prefix,value);
 });
 
 EM_JS(emscripten::EM_VAL, binMsgToHex_hdl, (emscripten::EM_VAL val_handle), {
@@ -17,7 +18,10 @@ EM_JS(emscripten::EM_VAL, binMsgToHex_hdl, (emscripten::EM_VAL val_handle), {
 });
 // clang-format on
 
-static void logObj(const emscripten::val &v) { log_em_value(v.as_handle()); }
+static void logJsObj(const emscripten::val &v, const std::string &prefix = "") {
+  emscripten::val pref(prefix);
+  log_em_value(v.as_handle(), pref.as_handle());
+}
 
 static std::string binMsgToHex(const emscripten::val &v) {
   auto rv = emscripten::val::take_ownership(binMsgToHex_hdl(v.as_handle()));

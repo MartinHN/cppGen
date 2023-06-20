@@ -76,6 +76,13 @@ namespace variants{
 
     template<Vec T>
     OptMemberRef getMemberWithIdx( T& obj,MemberIdx idx){
+        if(idx == obj.size()){ // allow appending
+            obj.push_back({});
+        }
+        else if (idx+1 > obj.size()){
+            THROW_LOG("accessing out of bound in vector");
+            return {};
+        }
         return obj[idx];
     }
 
@@ -142,6 +149,11 @@ namespace variants{
 
     template<Vec T>
     std::optional<MemberIdx > getIdxForMemberName( T& obj,const char * name ){
+        if(!isdigit(name[0]))
+        {
+            THROW_LOG("trying access other thing than an index on vector");
+            return {};
+        }
         return std::atoi(name);
     }
     template<typename T>

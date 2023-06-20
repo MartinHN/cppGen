@@ -106,13 +106,13 @@ export function genJsDecl(typeSyst: TypeSystem, outFolder: string): string[] {
         localFiles.push(localName);
     }
     if (localFiles.length) {
-        const localName = "JsDecl_prelude.ts";
-        const fN = jsFolder + "/" + localName;
-        const o = tmpl.parseTemplate("JsDecl_prelude.ts", {})
-        fs.writeFileSync(fN, o);
-        localFiles.unshift(localName);
+        for (const localName of ["JsDecl_prelude.ts"]) {
+            const fN = jsFolder + "/" + localName;
+            const o = tmpl.parseTemplate(localName, {})
+            fs.writeFileSync(fN, o);
+            localFiles.unshift(localName);
+        }
     }
-
     const jsFolderMain = jsFolder + "/main.ts"
     fs.writeFileSync(jsFolderMain, localFiles.map(e => `export * as ${e.split("_")[0]} from "./${e}"`).join("\n"));
     return [jsFolderMain];

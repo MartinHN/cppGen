@@ -17,73 +17,67 @@ static Dbg dbgJs("[jsb]");
 #error ROOT_JS_CLASS should be defind
 #endif
 
-ROOT_JS_CLASS *jsBindCppObj = nullptr;
-JsBindMessageProcessorHandler<ROOT_JS_CLASS> *cliHdlr;
 // JsMessageHandlerWrapper *toJsHdlr;
-JsConnHandlerWrapper *conHdl = nullptr;
-void initJsBindRootApi(ROOT_JS_CLASS *api) {
-    jsBindCppObj = api;
-}
 
-DECLARE_JS_BUILDER(MainBuilder, ROOT_JS_CLASS)
-static void initWebSocket(int port, const emscripten::val &connHdlr,
+static void initWebSocket(ROOT_JS_CLASS *rootApiObj, int port,
+                          const emscripten::val &connHdlr,
                           const emscripten::val &msgHdlr,
                           const emscripten::val &store) {
-    if (!jsBindCppObj) {
-        std::cerr << "root apin not inited with initJsBindRootApi()"
-                  << std::endl;
-        return;
-    }
-    if (conHdl != nullptr || cliHdlr != nullptr) {
-        std::cerr << "initWebSocket() has already been called" << std::endl;
-        return;
-    }
-    IMPL_JS_BUILDER(MainBuilder, *jsBindCppObj);
-    conHdl = new JsConnHandlerWrapper(connHdlr);
-    cliHdlr =
-        new JsBindMessageProcessorHandler<ROOT_JS_CLASS>(*jsBindCppObj, store);
-    cliHdlr->nextH = new JsMessageHandlerWrapper(msgHdlr);
+  if (!rootApiObj) {
+    std::cerr << "root class ptr should be passed in initWebSocket"
+              << std::endl;
+    return;
+  }
 
-    init_websocket(*jsBindCppObj, port, *conHdl, *cliHdlr);
+  // TODO remove following memory leaks
+  auto *conHdl = new JsConnHandlerWrapper(connHdlr);
+  auto *wasmToJsHdlr =
+      new WasmToJsObjHandler<ROOT_JS_CLASS>(*rootApiObj, store);
+  wasmToJsHdlr->nextH = new JsMessageHandlerWrapper(msgHdlr);
+
+  init_websocket(*rootApiObj, port, *conHdl, *wasmToJsHdlr);
 }
 
-struct BinTransport : public uapi::TransportImpl<ROOT_JS_CLASS> {
-    std::unique_ptr<JsBindMessageProcessorHandler<ROOT_JS_CLASS>> transpHdlr;
-    BinTransport(const emscripten::val &jsMsgHdlr, const emscripten::val &store)
-        : uapi::TransportImpl<ROOT_JS_CLASS>(jsBindCppObj) {
-        if (!jsBindCppObj) {
-          std::cerr << "root apin not inited with initJsBindRootApi()"
-                    << std::endl;
-          return;
-        }
-        // IMPL_JS_BUILDER(MainBuilder, *jsBindCppObj);
+struct JsWasmTransport : public uapi::TransportImpl<ROOT_JS_CLASS> {
+  std::unique_ptr<WasmToJsObjHandler<ROOT_JS_CLASS>> transpHdlr;
 
-        transpHdlr.reset(new JsBindMessageProcessorHandler<ROOT_JS_CLASS>(
-            *jsBindCppObj, store));
-        transpHdlr->nextH = new JsMessageHandlerWrapper(jsMsgHdlr);
-        transportMsgHdlr = transpHdlr.get();
+  JsWasmTransport(ROOT_JS_CLASS *rootApiObj, const emscripten::val &jsMsgHdlr,
+                  const emscripten::val &store)
+      : uapi::TransportImpl<ROOT_JS_CLASS>(rootApiObj) {
+    if (!rootApiObj) {
+      std::cerr << "root class ptr should be passed in initWebSocket"
+                << std::endl;
+      return;
     }
+    // IMPL_JS_BUILDER(MainBuilder, *rootApiObj);
 
-    virtual ~BinTransport() override = default;
+    transpHdlr.reset(new WasmToJsObjHandler<ROOT_JS_CLASS>(*rootApiObj, store));
+    transpHdlr->nextH = new JsMessageHandlerWrapper(jsMsgHdlr);
+    transportMsgHdlr = transpHdlr.get();
+  }
 
-    emscripten::val processMsgStr(std::string binMsg) {
-        std::string resp;
-        bool needResp = processMsg(binMsg.data(), binMsg.size(), resp);
-        if (needResp)
-          return strToJs(resp);
-        return {};
-    }
+  virtual ~JsWasmTransport() override = default;
+
+  emscripten::val processMsgStr(std::string binMsg) {
+    std::string resp;
+    bool needResp = processMsg(binMsg.data(), binMsg.size(), resp);
+    if (needResp)
+      return strToU8ArrJs(resp);
+    return {};
+  }
 };
 
+DECLARE_JS_BUILDER(MainBuilder, ROOT_JS_CLASS)
 EMSCRIPTEN_BINDINGS(JsBindScope) {
     // e::function("initForJsObj", &initForJsObj);
-    emscripten::function("initWebSocket", &initWebSocket);
-    emscripten::function("binMsgToHex", binMsgToHex);
-    EXPORT_JS_BUILDER(MainBuilder);
-    emscripten::class_<BinTransport>("BinTransport")
-        .constructor<emscripten::val, emscripten::val>()
-        .function("processMsg", &BinTransport::processMsgStr);
-    // e::function("processMsgForJs", &processMsgForJs);
+  emscripten::function("initWebSocket", &initWebSocket,
+                       emscripten::allow_raw_pointers());
+  emscripten::function("binMsgToHex", binMsgToHex);
+  // EXPORT_JS_BUILDER(MainBuilder);
+  emscripten::class_<JsWasmTransport>("JsWasmTransport")
+      .constructor<ROOT_JS_CLASS *, emscripten::val, emscripten::val>()
+      .function("processMsg", &JsWasmTransport::processMsgStr);
+  // e::function("processMsgForJs", &processMsgForJs);
 };
 
 #undef dbg

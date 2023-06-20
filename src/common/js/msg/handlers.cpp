@@ -21,7 +21,8 @@ template <typename T> void applyOnJs(e::val j, T &c) {
             dbg.print("entering from rootstate : ", mName);
             applyOnJs<TRUT>(j[mName], ma);
           } else {
-            dbg.print("setting from rootstate : ", mName, TRUT(ma));
+            dbg.print("setting from rootstate : ", mName, TRUT(ma),
+                      cppTypeOf<TRUT>());
             j.set(mName, TRUT(ma));
           }
         },
@@ -30,14 +31,15 @@ template <typename T> void applyOnJs(e::val j, T &c) {
 }
 
 template <typename T>
-struct JsBindMessageProcessorHandler : public uapi::MessageProcessorHandler {
-  JsBindMessageProcessorHandler(T &_api, e::val g)
-      : jsO(g), rootApiObj(_api), locker(g) {}
+struct WasmToJsObjHandler : public uapi::MessageProcessorHandler {
+  WasmToJsObjHandler(T &_api, e::val g) : jsO(g), rootApiObj(_api), locker(g) {
+    std::cout << "constructing wasmToJS" << std::endl;
+  }
 
   void onMemberSet(const std::string &addr, AnyMemberRefVar &v) override {
     dbg.print("setting member::", addr);
     NestedCounter c(locker);
-    logObj(jsO);
+    logJsObj(jsO, "pre");
     auto addrVec = uapi::variants::strAddrFromStr(addr);
     auto lastM = addrVec.back();
     addrVec.pop_back();
@@ -46,12 +48,12 @@ struct JsBindMessageProcessorHandler : public uapi::MessageProcessorHandler {
       targetO = targetO[a];
     }
     targetO.set(lastM, anyMemberToVal(v));
-    logObj(jsO);
+    logJsObj(jsO, "post");
     if (nextH)
       nextH->onMemberSet(addr, v);
   }
   void onMemberGet(const std::string &addr, AnyMemberRefVar &v) override {
-    // TODO
+    // TODO for the ones that can get out of sync with js stored state
     if (nextH)
       nextH->onMemberGet(addr, v);
   }
@@ -92,7 +94,7 @@ struct JsMessageHandlerWrapper : public JsObjWrapper,
                                  public uapi::MessageProcessorHandler {
   JsMessageHandlerWrapper(const emscripten::val &di) : JsObjWrapper(di) {
     // dbg.print("type of di : ", di.typeOf().as<std::string>());
-    // logObj(dispatcher);
+    // logJsObj(dispatcher);
     call("onInit");
   }
   // should be given as an instance of JSEmptyHandler

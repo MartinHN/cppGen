@@ -1,5 +1,5 @@
 #include "core/Dbg.h"
-static Dbg dbgMsg("[msg]", true);
+static Dbg dbgMsg("[msg]", false);
 #define dbg dbgMsg
 
 #include <sstream>
@@ -362,7 +362,6 @@ bool processMessage(T &parentNode, char *beg, size_t length,
               if constexpr (uapi::variants::isUserDefined<TRUT>::value) {
                 if (!dbg.disabled)
                   uapi::debug::dump<TRUT>(m);
-                // TODO full node address
                 uapi::serialize::from_bin<TRUT>(m, iss);
                 dbg.print("!! rootState is now :");
                 if (!dbg.disabled)

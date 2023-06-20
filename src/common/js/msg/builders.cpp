@@ -1,4 +1,4 @@
-emscripten::val strToJs(const std::string &str) {
+emscripten::val strToU8ArrJs(const std::string &str) {
   // returns array copy
   auto uArr = emscripten::val::global("Uint8Array");
   return uArr.new_(
@@ -7,11 +7,14 @@ emscripten::val strToJs(const std::string &str) {
 
 template <typename T> struct JSMsgBuilder {
   T *parentNode;
-  JSMsgBuilder() {}
+  JSMsgBuilder(T *p) : parentNode(p) {
+    dbg.print("creating builder for api", p);
+  }
   /// setters
   e::val buildJsBindModMessage(const std::string &jsAddr, const e::val &val) {
     std::string modBuf;
     auto aStr = uapi::variants::strAddrFromStr(jsAddr);
+    dbg.print("build modmsg for member ", aStr);
     auto intAddr = uapi::variants::addressStrToInt(*parentNode, aStr);
     if (!intAddr) {
       dbg.print("no member found for ", jsAddr);
@@ -35,14 +38,13 @@ template <typename T> struct JSMsgBuilder {
         *member);
     if (!isValid) {
       dbg.print("not valid");
-      return strToJs("");
+      return strToU8ArrJs("");
     }
 
     // // apply to internal value
     // std::string fkBuf;
-    // uapi::processMessage(jsBindCppObj, modBuf.data(), modBuf.size(), fkBuf,
-    //                         nullptr);
-    return strToJs(modBuf);
+    // uapi::processMessage(jsBindCppObj, modBuf.data(), modBuf.size(),fkBuf,nullptr);
+    return strToU8ArrJs(modBuf);
   }
 
   bool callMsgNeedsResp(const std::string &jsAddr,
@@ -92,13 +94,13 @@ template <typename T> struct JSMsgBuilder {
   e::val buildJsBindMemberGetMessage(const std::string &memberAddr) {
     std::string modBuf;
     uapi::buildGetMessage(*parentNode, memberAddr, modBuf);
-    return strToJs(modBuf);
+    return strToU8ArrJs(modBuf);
   }
 
   e::val buildGetRootStateMessageJs(const std::string &jsAddr) {
     std::string modBuf;
     uapi::buildGetRootStateMessage(*parentNode, jsAddr, modBuf);
-    return strToJs(modBuf);
+    return strToU8ArrJs(modBuf);
   }
 
   /// callers
@@ -133,41 +135,37 @@ template <typename T> struct JSMsgBuilder {
 
     if (!method) {
       dbg.print("not valid");
-      return strToJs("");
+      return strToU8ArrJs("");
     }
 
     auto argsToFill = method->getExpectedArgsTuple();
     bool isValid = parseJsMethodArgs(args, argsToFill);
     if (!isValid) {
       dbg.print("js args not valid");
-      return strToJs("");
+      return strToU8ArrJs("");
     }
     isValid = uapi::buildCallMessage(*parentNode, jsAddr, methodName,
                                      argsToFill, modBuf);
 
     if (!isValid) {
       dbg.print("call message not valid");
-      return strToJs("");
+      return strToU8ArrJs("");
     }
 
     dbg.print("valid");
     // // apply to internal value
     // std::string fkBuf;
-    // uapi::processMessage(jsBindCppObj, modBuf.data(), modBuf.size(), fkBuf,
+    // uapi::processMessage(jsBindCppObj, modBuf.data(), modBuf.size(),
+    // fkBuf,
     //                         nullptr);
-    return strToJs(modBuf);
+    return strToU8ArrJs(modBuf);
   }
 };
 
 #define DECLARE_JS_BUILDER(builderName, RootType)                              \
-  JSMsgBuilder<RootType> builder_##builderName;                                \
-  static JSMsgBuilder<RootType> *getInstance_##builderName() {                 \
-    return &builder_##builderName;                                             \
-  }                                                                            \
   EMSCRIPTEN_BINDINGS(builderName) {                                           \
-                                                                               \
     emscripten::class_<JSMsgBuilder<RootType>>(#builderName)                   \
-        .constructor(&getInstance_##builderName)                               \
+        .constructor<RootType *>()                                             \
         .function("buildJsBindModMessage",                                     \
                   &JSMsgBuilder<RootType>::buildJsBindModMessage)              \
         .function("buildJsBindMemberGetMessage",                               \
@@ -179,10 +177,3 @@ template <typename T> struct JSMsgBuilder {
         .function("callMsgNeedsResp",                                          \
                   &JSMsgBuilder<RootType>::callMsgNeedsResp);                  \
   };
-
-#define IMPL_JS_BUILDER(builderName, rootApi)                                  \
-  builder_##builderName.parentNode = &rootApi;
-
-#define EXPORT_JS_BUILDER(builderName)                                         \
-  emscripten::function("getMessageBuilder", &getInstance_##builderName,        \
-                       emscripten::allow_raw_pointers())

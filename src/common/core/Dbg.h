@@ -68,9 +68,12 @@ private:
 
   template <PrintableVec Arg> void printWithSpace(std::ostream &os, Arg v) {
     printOne(os, "[");
+    int i = v.size();
     for (const auto &e : v) {
+      i--;
       printWithSpace(os, e);
-      printOne(os, ",");
+      if (i > 0)
+        printOne(os, ",");
     }
     printOne(os, "]");
   }
