@@ -12,6 +12,7 @@ import * as path from "path"
 
 // import { genProto } from "./genProto"
 import { genWasm } from "./genWasm"
+import { exit } from "process"
 
 
 
@@ -32,16 +33,28 @@ function safeCpFolder(inF: string, outF: string) {
         return;
     }
     // safeClean(outF)
-    execSync("cp -r " + inF + " " + outF);
+    execSync("cp -rf " + inF + " " + outF);
+}
+
+function mkSymLink(inF: string, outF: string) {
+    console.log("will symlink " + inF + " to " + outF)
+    if (path.dirname(inF) == path.dirname(outF)) {
+        console.log("not symlinking to same dir")
+        return;
+    }
+
+    // safeClean(outF)
+    execSync("ln -sf " + inF + " " + outF);
 }
 
 
-export async function genAll(jsonPath: string, trueOutFolder: string, trueOutJsFolder?: string, wasmOpts?: any) {
+export async function genAll(jsonPath: string, trueOutFolder: string, opts?: { useSymlinks?: boolean }, trueOutJsFolder?: string, wasmOpts?: any) {
     const outFolder = "/tmp/genCpp/"
+    opts = opts || {}
 
     safeClean(outFolder)
-    const localGenPath = __dirname + "/common"
-    safeCpFolder(localGenPath, outFolder)
+
+
     ///////// 
     // added prim
     const addedFiles = new Array<string>();
@@ -54,7 +67,6 @@ export async function genAll(jsonPath: string, trueOutFolder: string, trueOutJsF
     const api = apiLoader.load(jsonPath);
 
     let allIncludes = new Array<string>()
-
     console.log(api)
 
     const dumpFiles: string[] = genDump(api, outFolder)
@@ -83,7 +95,30 @@ export async function genAll(jsonPath: string, trueOutFolder: string, trueOutJsF
     const lintRes = execSync(`find ${outFolder} -iname "*.h" -o -iname "*.cpp" -o -iname "*.proto" | xargs clang-format -style="{SortIncludes: Never}" -i`)
 
     let jslintRes = Buffer.from("");
+    // common files
+    const localCommonPath = __dirname + "/common"
+    if (!opts.useSymlinks)
+        safeCpFolder(localCommonPath, outFolder)
     rsync(outFolder, trueOutFolder)
+
+    if (opts.useSymlinks) {
+        const trueCommon = trueOutFolder + "/" + path.basename(localCommonPath);
+        if (fs.existsSync(trueCommon)) {
+            const s = fs.statSync(trueCommon)
+            if (s.isDirectory()) {
+                fs.rmSync(trueCommon, { recursive: true });
+            }
+            else if (s.isSymbolicLink()) {
+                fs.unlinkSync(trueCommon);
+            }
+            else {
+                throw new Error("unknown common folder type")
+            }
+        }
+        mkSymLink(localCommonPath, trueOutFolder)
+    }
+
+
     if (!!trueOutJsFolder) {
 
         const outJsFolder = "/tmp/genJs/"
@@ -108,10 +143,11 @@ export async function genAll(jsonPath: string, trueOutFolder: string, trueOutJsF
 
 
 function rsync(from: string, to: string) {
+    console.log(`will rsync  ${from} to ${to}`)
     if (!from.endsWith("/"))
         from = from + "/"
     if (!to.endsWith("/"))
         to = to + "/"
 
-    spawn(`rsync -r --checksum ${from} ${to}; echo "done copying ${to}"`, { shell: true, stdio: 'inherit' });
+    spawnSync(`rsync -r --checksum ${from} ${to}; echo "done copying ${to}"`, { shell: true, stdio: 'inherit' });
 }

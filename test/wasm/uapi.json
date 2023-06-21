@@ -4,6 +4,9 @@
     },
     "outFolder": "./gen/",
     "outJsFolder": "./gen_js/",
+    "opts": {
+        "useSymlinks": true
+    },
     "wasmOpts": {
         "baseClass": "RootAPI",
         "buildForNode": true,
