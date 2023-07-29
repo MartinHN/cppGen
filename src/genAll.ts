@@ -13,39 +13,9 @@ import * as path from "path"
 // import { genProto } from "./genProto"
 import { genWasm } from "./genWasm"
 import { exit } from "process"
+import { mkSymLink, rsync, safeClean, safeCpFolder } from "./fileHelps"
 
 
-
-
-function safeClean(of: string) {
-    if (of.length < 10) {
-        throw Error("folder path to clean is too short?" + of)
-    }
-    if (fs.existsSync(of)) { execSync("rm -r " + of); }
-    execSync("mkdir -p " + of);
-}
-
-
-function safeCpFolder(inF: string, outF: string) {
-    console.log("will copy " + inF + " to " + outF)
-    if (path.dirname(inF) == path.dirname(outF)) {
-        console.log("not copying to same dir")
-        return;
-    }
-    // safeClean(outF)
-    execSync("cp -rf " + inF + " " + outF);
-}
-
-function mkSymLink(inF: string, outF: string) {
-    console.log("will symlink " + inF + " to " + outF)
-    if (path.dirname(inF) == path.dirname(outF)) {
-        console.log("not symlinking to same dir")
-        return;
-    }
-
-    // safeClean(outF)
-    execSync("ln -sf " + inF + " " + outF);
-}
 
 
 export async function genAll(jsonPath: string, trueOutFolder: string, opts?: { useSymlinks?: boolean }, trueOutJsFolder?: string, wasmOpts?: any) {
@@ -132,7 +102,7 @@ export async function genAll(jsonPath: string, trueOutFolder: string, opts?: { u
 
         rsync(outJsFolder, trueOutJsFolder)
         if (wasmOpts)
-            await genWasm(api, trueOutFolder, wasmOpts.baseClass, trueOutJsFolder, wasmOpts.debugMode, wasmOpts.buildForNode)
+            await genWasm(api, trueOutFolder, wasmOpts.baseClass, trueOutJsFolder, wasmOpts.debugMode, wasmOpts.buildForNode, opts)
 
 
     }
@@ -142,12 +112,3 @@ export async function genAll(jsonPath: string, trueOutFolder: string, opts?: { u
 }
 
 
-function rsync(from: string, to: string) {
-    console.log(`will rsync  ${from} to ${to}`)
-    if (!from.endsWith("/"))
-        from = from + "/"
-    if (!to.endsWith("/"))
-        to = to + "/"
-
-    spawnSync(`rsync -r --checksum ${from} ${to}; echo "done copying ${to}"`, { shell: true, stdio: 'inherit' });
-}
