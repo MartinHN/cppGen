@@ -17,8 +17,6 @@ static Dbg dbgJs("[jsb]");
 #error ROOT_JS_CLASS should be defind
 #endif
 
-// JsMessageHandlerWrapper *toJsHdlr;
-
 static void initWebSocket(ROOT_JS_CLASS *rootApiObj, int port,
                           const emscripten::val &connHdlr,
                           const emscripten::val &msgHdlr,
@@ -39,11 +37,12 @@ static void initWebSocket(ROOT_JS_CLASS *rootApiObj, int port,
 }
 
 struct JsWasmTransport : public uapi::TransportImpl<ROOT_JS_CLASS> {
-  std::unique_ptr<WasmToJsObjHandler<ROOT_JS_CLASS>> transpHdlr;
-
+  WasmToJsObjHandler<ROOT_JS_CLASS> transpHdlr;
+  JsMessageHandlerWrapper jsMessageCallback;
   JsWasmTransport(ROOT_JS_CLASS *rootApiObj, const emscripten::val &jsMsgHdlr,
                   const emscripten::val &store)
-      : uapi::TransportImpl<ROOT_JS_CLASS>(rootApiObj) {
+      : uapi::TransportImpl<ROOT_JS_CLASS>(rootApiObj),
+        transpHdlr(*rootApiObj, store), jsMessageCallback(jsMsgHdlr) {
     if (!rootApiObj) {
       std::cerr << "root class ptr should be passed in initWebSocket"
                 << std::endl;
@@ -51,9 +50,8 @@ struct JsWasmTransport : public uapi::TransportImpl<ROOT_JS_CLASS> {
     }
     // IMPL_JS_BUILDER(MainBuilder, *rootApiObj);
 
-    transpHdlr.reset(new WasmToJsObjHandler<ROOT_JS_CLASS>(*rootApiObj, store));
-    transpHdlr->nextH = new JsMessageHandlerWrapper(jsMsgHdlr);
-    transportMsgHdlr = transpHdlr.get();
+    transpHdlr.nextH = &jsMessageCallback;
+    transportMsgHdlr = &transpHdlr;
   }
 
   virtual ~JsWasmTransport() override = default;

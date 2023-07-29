@@ -3,10 +3,10 @@
 #include <iostream>
 
 using uapi::traits::CanBeIterated;
-using uapi::traits::Vec;
+using uapi::traits::VecOrArr;
 
 template <typename T>
-concept PrintableVec = Vec<T> || CanBeIterated<T>;
+concept PrintableVec = VecOrArr<T> || CanBeIterated<T>;
 
 struct Dbg {
   Dbg(const char *_prefix, bool disab = false)

@@ -19,10 +19,19 @@ std::is_same_v<std::decay_t<C>, std::string>;
 template <class T> struct is_vector : std::false_type {};
 template <class T, class A>
 struct is_vector<std::vector<T, A>> : std::true_type {};
+
+template <class T> struct is_array : std::false_type {};
 template <class T, size_t A>
-struct is_vector<std::array<T, A>> : std::true_type {};
+struct is_array<std::array<T, A>> : std::true_type {};
+
+template <typename T>
+concept Arr = is_array<std::decay_t<T>>::value;
+
 template <typename T>
 concept Vec = is_vector<std::decay_t<T>>::value;
+
+template <typename T>
+concept VecOrArr = Vec<T> || Arr<T>;
 
 template <typename T> struct inner_type {
   using type = T;
@@ -40,7 +49,7 @@ concept TupleLike = requires(T a) {
                       std::tuple_size<T>::value;
                       std::get<0>(a);
                     } && !
-Vec<T>;
+VecOrArr<T>;
 
 // String
 template <typename T>

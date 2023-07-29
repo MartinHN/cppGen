@@ -74,12 +74,14 @@ namespace variants{
     <% } %>
 
 
-    template<Vec T>
+    template<VecOrArr T>
     OptMemberRef getMemberWithIdx( T& obj,MemberIdx idx){
-        if(idx == obj.size()){ // allow appending
-            obj.push_back({});
+        if constexpr ( Vec<T>){
+            if(idx == obj.size()){ // allow appending
+                obj.push_back({});
+            }
         }
-        else if (idx+1 > obj.size()){
+        if (idx > MemberIdx(obj.size())){
             THROW_LOG("accessing out of bound in vector");
             return {};
         }
@@ -102,7 +104,7 @@ namespace variants{
         }
     <% } %>
 
-    template<Vec T>
+    template<VecOrArr T>
      MemberIdx getNumMembers( const T& obj){
         return obj.size();
     }
@@ -122,7 +124,7 @@ namespace variants{
         }
     <% } %>
 
-    template<Vec T>
+    template<VecOrArr T>
     std::string getMemberNameForIdx( MemberIdx idx){
         return std::to_string(idx);
     }
@@ -147,7 +149,7 @@ namespace variants{
         }
     <% } %>
 
-    template<Vec T>
+    template<VecOrArr T>
     std::optional<MemberIdx > getIdxForMemberName( T& obj,const char * name ){
         if(!isdigit(name[0]))
         {
@@ -178,7 +180,7 @@ namespace variants{
                 std::visit([&res,&ia](auto && r){
                     using ArgT = std::decay_t<decltype(r)>;
                     using TRUT = typename uapi::traits::unwrap_ref<ArgT>::type;
-                    if constexpr (uapi::variants::isUserDefined<TRUT>::value || uapi::traits::Vec<TRUT>)
+                    if constexpr (uapi::variants::isUserDefined<TRUT>::value || uapi::traits::VecOrArr<TRUT>)
                         res= getMemberWithIdx<TRUT>(r,ia);
                    
 
@@ -206,7 +208,7 @@ namespace variants{
                 std::visit([&insp,&a,&res](auto && r){
                     using ArgT = std::decay_t<decltype(r)>;
                     using TRUT = typename uapi::traits::unwrap_ref<ArgT>::type;
-                    if constexpr (uapi::variants::isUserDefined<TRUT>::value || uapi::traits::Vec<TRUT>){
+                    if constexpr (uapi::variants::isUserDefined<TRUT>::value || uapi::traits::VecOrArr<TRUT>){
                         auto idx= getIdxForMemberName<TRUT>(r,a.c_str());
                             if(!idx){
                                 THROW_LOG(std::string("cant find for name ")+a);
@@ -240,7 +242,7 @@ namespace variants{
                 std::visit([&insp,&i,&res](auto && r){
                     using ArgT = std::decay_t<decltype(r)>;
                     using TRUT = typename uapi::traits::unwrap_ref<ArgT>::type;
-                    if constexpr (uapi::variants::isUserDefined<TRUT>::value || uapi::traits::Vec<TRUT>){
+                    if constexpr (uapi::variants::isUserDefined<TRUT>::value || uapi::traits::VecOrArr<TRUT>){
                         auto memberName= getMemberNameForIdx<TRUT>(i);
                         if(!memberName.size()){
                             THROW_LOG(std::string("cant find for idx ")+(std::to_string(i)));

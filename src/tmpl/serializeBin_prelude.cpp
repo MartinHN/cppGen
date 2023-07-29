@@ -63,7 +63,7 @@ template <TupleLike T> size_t true_size(T o) {
   return res;
 }
 
-template <Vec T> size_t true_size(const T &obj) {
+template <VecOrArr T> size_t true_size(const T &obj) {
   if (obj.size())
     return obj.size() * true_size(obj[0]);
   return 0;
@@ -122,7 +122,7 @@ template <> void write_value<std::string>(OutStr &os, const std::string &o) {
   }
 }
 
-template <Vec T> void write_value(OutStr &os, const T &o) {
+template <VecOrArr T> void write_value(OutStr &os, const T &o) {
   write_value<vec_size_t>(os, o.size());
   for (const auto &e : o)
     write_value(os, e);
@@ -183,14 +183,10 @@ template <SVarInt T> void parse_value(T &obj, InStr &is) {
   obj = UToSVarInt<T>(zz);
 }
 
-template <Vec T> struct can_resize : std::false_type {};
-template <typename T> struct can_resize<std::vector<T>> : std::true_type {};
-template <typename T> constexpr auto can_resize_v = can_resize<T>::value;
-
-template <Vec T> void parse_value(T &obj, InStr &is) {
+template <VecOrArr T> void parse_value(T &obj, InStr &is) {
   vec_size_t sz = 0;
   parse_value(sz, is);
-  if constexpr (can_resize_v<T>)
+  if constexpr (Vec<T>)
     obj.resize(sz);
   for (vec_size_t i = 0; i < sz; i++) {
     parse_value(obj[i], is);

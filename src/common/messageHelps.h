@@ -201,8 +201,8 @@ bool buildCallResp(const variants::MemberAddressInt &memberAddr,
 }
 
 template <typename NodeT>
-bool buildGetRootStateMessage(NodeT &parentNode, const std::string &childAddr,
-                              std::string &modBuf) {
+bool buildMessageGetState(NodeT &parentNode, const std::string &childAddr,
+                          std::string &modBuf) {
   std::ostringstream oss;
   uapi::serialize::write_value<pack_ops_t>(
       oss, packOpCode(MessageOpcode::get, GetSetType::rootState));

@@ -96,12 +96,13 @@
     "esm": true,
     "compilerOptions": {
       "target": "ESNext", /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
-      "module": "Node16",
+      "module": "ESNext",
       "esModuleInterop": true,
-      "moduleResolution": "node16",
+      "moduleResolution": "Bundler",
       "allowJs": true, /* Allow JavaScript files to be a part of your program. Use the 'checkJS' option to get errors from these files. */
-      "checkJs": true, /* Enable error reporting in type-checked JavaScript files. */
+      "checkJs": false, /* Enable error reporting in type-checked JavaScript files. */
       "maxNodeModuleJsDepth": 1, /* Specify the maximum folder depth used for checking JavaScript files from 'node_modules'. Only applicable with 'allowJs'. */
+      "allowImportingTsExtensions": true,
     }
   }
 }

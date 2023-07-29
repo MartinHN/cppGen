@@ -1,6 +1,6 @@
 #include <iostream>
 
-using uapi::traits::Vec;
+using uapi::traits::VecOrArr;
 #define UAPI_HAS_DUMP 1
 
 namespace uapi {
@@ -11,7 +11,7 @@ int indentStep = 4;
 
 template <typename T> void dumpValue(const T &obj, int) { std::cout << obj; }
 
-template <Vec T> void dumpValue(const T &obj, int indent) {
+template <VecOrArr T> void dumpValue(const T &obj, int indent) {
   std::cout << "[ ";
   size_t i = 0;
   for (const auto &o : obj) {

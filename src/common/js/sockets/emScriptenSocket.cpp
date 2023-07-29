@@ -51,7 +51,7 @@ onopen(int eventType, const EmscriptenWebSocketOpenEvent *websocketEvent,
     wsConnHandler->onConnOpen();
   // EMSCRIPTEN_RESULT result;
   // std::string askMsg;
-  // uapi::buildGetRootStateMessage(askMsg);
+  // uapi::buildMessageGetState(askMsg);
   // result = emscripten_websocket_send_binary(websocketEvent->socket,
   //                                           askMsg.data(), askMsg.size());
 
@@ -154,7 +154,7 @@ EMSCRIPTEN_BINDINGS(GlobalWs) {
 
 // void sendGetState() {
 //   std::string askMsg;
-//   uapi::buildGetRootStateMessage(askMsg);
+//   uapi::buildMessageGetState(askMsg);
 //   send_msg(askMsg);
 // }
 

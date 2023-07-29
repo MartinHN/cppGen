@@ -1,7 +1,7 @@
 import assert from "assert";
 import { exit } from "process";
-import diffM from 'deep-diff';
-const diff = diffM.diff
+import diff from 'deep-diff';
+
 
 // const diff = diffM.diff
 /// obj helpers

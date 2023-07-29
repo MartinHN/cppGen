@@ -11,7 +11,7 @@ template <typename T> struct JSMsgBuilder {
     dbg.print("creating builder for api", p);
   }
   /// setters
-  e::val buildJsBindModMessage(const std::string &jsAddr, const e::val &val) {
+  e::val buildMessageSet(const std::string &jsAddr, const e::val &val) {
     std::string modBuf;
     auto aStr = uapi::variants::strAddrFromStr(jsAddr);
     dbg.print("build modmsg for member ", aStr);
@@ -91,22 +91,21 @@ template <typename T> struct JSMsgBuilder {
   }
 
   /// getters
-  e::val buildJsBindMemberGetMessage(const std::string &memberAddr) {
+  e::val buildMessageGet(const std::string &memberAddr) {
     std::string modBuf;
     uapi::buildGetMessage(*parentNode, memberAddr, modBuf);
     return strToU8ArrJs(modBuf);
   }
 
-  e::val buildGetRootStateMessageJs(const std::string &jsAddr) {
+  e::val buildMessageGetStateJs(const std::string &jsAddr) {
     std::string modBuf;
-    uapi::buildGetRootStateMessage(*parentNode, jsAddr, modBuf);
+    uapi::buildMessageGetState(*parentNode, jsAddr, modBuf);
     return strToU8ArrJs(modBuf);
   }
 
   /// callers
-  e::val buildJsBindCallMessage(const std::string &jsAddr,
-                                const std::string &methodName,
-                                const e::val &args) {
+  e::val buildMessageCall(const std::string &jsAddr,
+                          const std::string &methodName, const e::val &args) {
     std::string modBuf;
     auto aStr = uapi::variants::strAddrFromStr(jsAddr);
     auto intAddr = uapi::variants::addressStrToInt(*parentNode, aStr);
@@ -166,14 +165,12 @@ template <typename T> struct JSMsgBuilder {
   EMSCRIPTEN_BINDINGS(builderName) {                                           \
     emscripten::class_<JSMsgBuilder<RootType>>(#builderName)                   \
         .constructor<RootType *>()                                             \
-        .function("buildJsBindModMessage",                                     \
-                  &JSMsgBuilder<RootType>::buildJsBindModMessage)              \
-        .function("buildJsBindMemberGetMessage",                               \
-                  &JSMsgBuilder<RootType>::buildJsBindMemberGetMessage)        \
-        .function("buildJsBindCallMessage",                                    \
-                  &JSMsgBuilder<RootType>::buildJsBindCallMessage)             \
-        .function("buildGetRootStateMessage",                                  \
-                  &JSMsgBuilder<RootType>::buildGetRootStateMessageJs)         \
+        .function("buildMessageSet", &JSMsgBuilder<RootType>::buildMessageSet) \
+        .function("buildMessageGet", &JSMsgBuilder<RootType>::buildMessageGet) \
+        .function("buildMessageCall",                                          \
+                  &JSMsgBuilder<RootType>::buildMessageCall)                   \
+        .function("buildMessageGetState",                                      \
+                  &JSMsgBuilder<RootType>::buildMessageGetStateJs)             \
         .function("callMsgNeedsResp",                                          \
                   &JSMsgBuilder<RootType>::callMsgNeedsResp);                  \
   };

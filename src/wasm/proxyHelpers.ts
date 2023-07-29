@@ -2,22 +2,25 @@ let root = null as any;
 
 import { MainBuilder, JsWasmTransport } from "./wasmJsTypes"
 
+interface BinSender {
+    sendMsg(a: any): void;
+}
 
 export class JsCliSender {
 
-    constructor(public msgBuild: MainBuilder, public wasmWriter: JsWasmTransport, public serverSender?: JsWasmTransport) { }
+    constructor(public msgBuild: MainBuilder, public wasmWriter: JsWasmTransport, public serverSender?: BinSender) { }
     onJsElementSet(parentAddr: string[], onTo: any, k: string, nV: any): void {
-        const msg = this.msgBuild.buildJsBindModMessage(parentAddr.concat(k).join("/"), nV);
+        const msg = this.msgBuild.buildMessageSet(parentAddr.concat(k).join("/"), nV);
         this.wasmWriter.processMsg(msg);
         if (this.serverSender)
-            this.serverSender.processMsg(msg);
+            this.serverSender.sendMsg(msg);
     }
     onJsElementCall(parentAddr: string[], args: any[]): void {
         const fName = parentAddr.pop()
-        const msg = this.msgBuild.buildJsBindCallMessage(parentAddr.join("/"), fName, args);
+        const msg = this.msgBuild.buildMessageCall(parentAddr.join("/"), (fName as string), args);
         this.wasmWriter.processMsg(msg);
         if (this.serverSender)
-            this.serverSender.processMsg(msg);
+            this.serverSender.sendMsg(msg);
     }
 
     onNewObjAdded(parentAddr: string[], newObj: any) {

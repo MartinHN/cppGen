@@ -132,7 +132,7 @@ DEFINE_TEST(SimpleRootStateMessage) {
   api.a = 5;
   api.string = "lolo";
   std::string msg;
-  TEST(uapi::buildGetRootStateMessage(api, "", msg));
+  TEST(uapi::buildMessageGetState(api, "", msg));
   std::string resp = {};
   bool needResp =
       uapi::processMessage(api, msg.data(), msg.size(), resp, nullptr);

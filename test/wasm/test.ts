@@ -1,16 +1,17 @@
 
-import { CustomEmbindModule, JSHandler } from "./gen_js/wasm/wasmJsTypes"
+import { CustomEmbindModule, JSHandler } from "./gen_js/wasm/wasmJsTypes.ts"
 import w from "./gen_js/wasm/wasmJs.js"
-import * as prox from "./gen_js/wasm/proxyHelpers"
-
+import * as prox from "./gen_js/wasm/proxyHelpers.ts"
+// import * as prox from "../../src/wasm/proxyHelpers.ts"
 
 import { RootAPI_Data } from "./gen_js/decl/RootAPI_Decl.ts";
 
-import * as t from "./tstHelps"
+
+import * as t from "./tstHelps.ts"
+
 const mod: CustomEmbindModule = await w();
 
 
-import { initProxyObj } from "./gen_js/decl/JsDeclProxy";
 // import WebSocket from "ws"
 
 
@@ -56,7 +57,7 @@ class HdlRecorder {
 const msgHdlrRecorder = new HdlRecorder();
 
 class BinarySenderLogger {
-    processMsg(m: any) {
+    sendMessage(m: any) {
         console.log("sould send", m)
     }
     delete() { }
@@ -80,34 +81,103 @@ const binSenderLogger = new BinarySenderLogger();
 // })
 
 // t.test("wasmInst", () => {
-//     const l = mod.buildRootApi()
+//     const l = nex RootAPI_Data()
 //     mod.dumpPtr(l)
 //     const msgBuilder = new mod.MainBuilder(l)
-//     const m = msgBuilder.buildGetRootStateMessage("")
+//     const m = msgBuilder.buildMessageGetState("")
 //     console.log(m)
 // })
 
-t.test("proxy", () => {
+t.test("healthCheck", () => {
     const jsObj = new RootAPI_Data();
-    const rootApiWasmObj = new mod.RootAPI();
-    const msgBuilder = new mod.MainBuilder(rootApiWasmObj)
     t.expect(typeof (jsObj.__getServerFunctionNames) === "function")
-    const bt = new mod.JsWasmTransport(rootApiWasmObj, msgHdlrRecorder, jsObj)
-    const sender = new prox.JsCliSender(msgBuilder, bt, binSenderLogger);
-    const proxy = prox.initProxyObj(jsObj, sender)
 
-    proxy.vec.push(4)
-    t.expect(proxy.vec.length === 1)
-    t.expect(proxy.vec[0] === 4)
-    t.expectDeepEqual(msgHdlrRecorder.lastAddr, "/vec/0")
-    t.expect(proxy.__fromServer === false)
-    mod.dumpPtr(rootApiWasmObj)
+    const rootApiWasmObj = new mod.RootAPI();
+    rootApiWasmObj.delete()
 
-    // proxy.string = "lmlml"
-    // t.expect(proxy.string === "lmlml")
-    // mod.dump();
-    rootApiWasmObj.delete();
 })
+
+
+class BinSenderType {
+    lastMessage: any;
+    sendMsg(m: any) { }
+}
+
+class BinSenderMock {
+    lastMessage: any;
+    sendMsg(m: any) { this.lastMessage = m; console.log("sending to server", m); }
+}
+class JsCli {
+
+    constructor(public binSender: BinSenderType) {
+
+    }
+    public jsObj = new RootAPI_Data();
+    public rootApiWasmObj = new mod.RootAPI();
+    public msgBuilder = new mod.MainBuilder(this.rootApiWasmObj)
+    public bt = new mod.JsWasmTransport(this.rootApiWasmObj, msgHdlrRecorder, this.jsObj)
+    public sender = new prox.JsCliSender(this.msgBuilder, this.bt, this.binSender);
+    public proxy = prox.initProxyObj(this.jsObj, this.sender);
+
+    processFromServer(msg: any) {
+        const respToServer = this.bt.processMsg(msg);
+        this.binSender.lastMessage = respToServer
+        if (!!respToServer) {
+            this.binSender.sendMsg(respToServer);
+        }
+
+    }
+
+
+    delete() {
+        this.rootApiWasmObj.delete()
+    }
+}
+
+t.test("jsCli", () => {
+    const mockSender = new BinSenderMock();
+    const jsCli = new JsCli(mockSender);
+
+    // get value from server
+    const getStringMsg = jsCli.msgBuilder.buildMessageGet("/string")
+    jsCli.processFromServer(getStringMsg)
+    t.expect(!!mockSender.lastMessage)
+    console.log(mockSender.lastMessage)
+
+    // set value from server
+    const setStringMsg = jsCli.msgBuilder.buildMessageSet("/string", "lololooooo")
+    jsCli.processFromServer(setStringMsg)
+    t.expect(mockSender.lastMessage === undefined)
+    t.expect(jsCli.jsObj.string === "lololooooo")
+
+
+    // set value from js
+    jsCli.proxy.string = "lululuuuu"
+    t.expect(!!mockSender.lastMessage)
+
+    jsCli.delete();
+})
+
+// t.test("proxy", () => {
+//     const jsObj = new RootAPI_Data();
+//     const rootApiWasmObj = new mod.RootAPI();
+//     const msgBuilder = new mod.MainBuilder(rootApiWasmObj)
+//     const bt = new mod.JsWasmTransport(rootApiWasmObj, msgHdlrRecorder, jsObj)
+//     const sender = new prox.JsCliSender(msgBuilder, bt, binSenderLogger);
+//     const proxy = prox.initProxyObj(jsObj, sender)
+
+//     proxy.vec.push(4)
+//     t.expect(proxy.vec.length === 1)
+//     t.expect(proxy.vec[0] === 4)
+//     t.expectDeepEqual(msgHdlrRecorder.lastAddr, "/vec/0")
+//     t.expect(proxy.__fromServer === false)
+//     mod.dumpPtr(rootApiWasmObj)
+
+//     // proxy.string = "lmlml"
+//     // t.expect(proxy.string === "lmlml")
+//     // mod.dump();
+//     rootApiWasmObj.delete();
+// })
 
 
 // t.test("binTransport", () => {
@@ -123,7 +193,7 @@ t.test("proxy", () => {
 //     // printJsObj(obj)
 
 //     // mod.dump();
-//     const msg = msgBuilder.buildGetRootStateMessage("")
+//     const msg = msgBuilder.buildMessageGetState("")
 //     console.log("get root", msg)
 //     const snap = t.getObjSnapshot(obj)
 //     const resp = bt.processMsg(msg)

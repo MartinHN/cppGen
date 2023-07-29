@@ -32,47 +32,57 @@ template <typename T> void applyOnJs(e::val j, T &c) {
 
 template <typename T>
 struct WasmToJsObjHandler : public uapi::MessageProcessorHandler {
+
   WasmToJsObjHandler(T &_api, e::val g) : jsO(g), rootApiObj(_api), locker(g) {
     std::cout << "constructing wasmToJS" << std::endl;
   }
 
   void onMemberSet(const std::string &addr, AnyMemberRefVar &v) override {
-    dbg.print("setting member::", addr);
-    NestedCounter c(locker);
-    logJsObj(jsO, "pre");
-    auto addrVec = uapi::variants::strAddrFromStr(addr);
-    auto lastM = addrVec.back();
-    addrVec.pop_back();
-    auto targetO = jsO;
-    for (auto &a : addrVec) {
-      targetO = targetO[a];
+    if (shouldProcess) {
+      dbg.print("setting member::", addr);
+      NestedCounter c(locker);
+      logJsObj(jsO, "pre");
+      auto addrVec = uapi::variants::strAddrFromStr(addr);
+      auto lastM = addrVec.back();
+      addrVec.pop_back();
+      auto targetO = jsO;
+      for (auto &a : addrVec) {
+        targetO = targetO[a];
+      }
+      targetO.set(lastM, anyMemberToVal(v));
+      logJsObj(jsO, "post");
     }
-    targetO.set(lastM, anyMemberToVal(v));
-    logJsObj(jsO, "post");
     if (nextH)
       nextH->onMemberSet(addr, v);
   }
   void onMemberGet(const std::string &addr, AnyMemberRefVar &v) override {
-    // TODO for the ones that can get out of sync with js stored state
+    if (shouldProcess) {
+      // TODO for the ones that can get out of sync with js stored state
+    }
     if (nextH)
       nextH->onMemberGet(addr, v);
   }
 
   void onRootStateSet(const std::string &addr) override {
-    NestedCounter c(locker);
-    applyOnJs(jsO, rootApiObj);
-    // TODO
+    if (shouldProcess) {
+      NestedCounter c(locker);
+      applyOnJs(jsO, rootApiObj);
+    }
     if (nextH)
       nextH->onRootStateSet(addr);
   }
   void onRootStateGet(const std::string &addr) override {
-    // TODO
+    if (shouldProcess) {
+      // TODO
+    }
     if (nextH)
       nextH->onRootStateGet(addr);
   }
   void onFunctionCall(const std::string &name, AnyMethodArgsTuple &args,
                       AnyMethodReturnValue &res) override {
-    // TODO
+    if (shouldProcess) {
+      // TODO
+    }
     if (nextH)
       nextH->onFunctionCall(name, args, res);
   }
@@ -80,7 +90,9 @@ struct WasmToJsObjHandler : public uapi::MessageProcessorHandler {
   // do
   void onFunctionResp(const std::string &name,
                       AnyMethodReturnValue &res) override {
-    // TODO
+    if (shouldProcess) {
+      // TODO
+    }
     if (nextH)
       nextH->onFunctionResp(name, res);
   }
@@ -88,10 +100,12 @@ struct WasmToJsObjHandler : public uapi::MessageProcessorHandler {
   T &rootApiObj;
   NestedLocker locker;
   MessageProcessorHandler *nextH = nullptr;
+  bool shouldProcess = true;
 };
 
 struct JsMessageHandlerWrapper : public JsObjWrapper,
                                  public uapi::MessageProcessorHandler {
+  bool shouldProcess = true;
   JsMessageHandlerWrapper(const emscripten::val &di) : JsObjWrapper(di) {
     // dbg.print("type of di : ", di.typeOf().as<std::string>());
     // logJsObj(dispatcher);
@@ -101,19 +115,30 @@ struct JsMessageHandlerWrapper : public JsObjWrapper,
 
   void onMemberSet(const std::string &addr,
                    uapi::variants::AnyMemberRefVar &v) override {
+    if (!shouldProcess)
+      return;
     call("onSet", addr);
   };
   void onMemberGet(const std::string &addr,
                    uapi::variants::AnyMemberRefVar &v) override {
+    if (!shouldProcess)
+      return;
     call("onGet", addr);
   };
   void onRootStateSet(const std::string &addr) override {
+    if (!shouldProcess)
+      return;
     call("onRootStateSet", addr);
   }
-  void onRootStateGet(const std::string &addr) override {}
+  void onRootStateGet(const std::string &addr) override {
+    if (!shouldProcess)
+      return;
+  }
   void onFunctionCall(const std::string &addr,
                       uapi::variants::AnyMethodArgsTuple &args,
                       uapi::variants::AnyMethodReturnValue &res) override {
+    if (!shouldProcess)
+      return;
     // the only unimplemented function, it's app reponsability to know what
     // to
     call("onCall", addr);
@@ -121,6 +146,8 @@ struct JsMessageHandlerWrapper : public JsObjWrapper,
 
   void onFunctionResp(const std::string &addr,
                       uapi::variants::AnyMethodReturnValue &res) override {
+    if (!shouldProcess)
+      return;
     std::visit(
         [this, &addr](auto &&r) {
           using T = decltype(r);
